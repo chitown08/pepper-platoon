@@ -1,0 +1,78 @@
+<!doctype html>
+<html lang="en">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
+  <meta name="theme-color" content="#2b1d14">
+  <meta name="apple-mobile-web-app-capable" content="yes">
+  <meta name="mobile-web-app-capable" content="yes">
+  <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+  <title>Pepper Platoon</title>
+  <link rel="preconnect" href="https://fonts.googleapis.com">
+  <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+  <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
+  <link rel="stylesheet" href="style.css">
+</head>
+<body>
+  <div id="app">
+    <header id="hud">
+      <div class="hud-block">
+        <span class="label">Time</span>
+        <span id="timer">2:30</span>
+      </div>
+      <div class="hud-block center">
+        <div id="stars"><span class="star">★</span><span class="star">★</span><span class="star">★</span></div>
+        <span id="pct">0%</span>
+      </div>
+      <div class="hud-block right">
+        <button id="help-btn" class="icon-btn" aria-label="How to play">?</button>
+        <button id="mute" class="icon-btn" aria-label="Toggle sound">🔊</button>
+      </div>
+      <div id="heat">
+        <span class="label">🔥 Heat</span>
+        <div id="heatbar"><i></i></div>
+        <span id="heatnum">0</span>
+      </div>
+    </header>
+
+    <main id="stage">
+      <canvas id="game"></canvas>
+      <div id="banner">
+        <b>Scouting the Bug Hive</b>
+        <span>Tap buildings to inspect · Tap the picnic blanket to deploy and start the raid</span>
+      </div>
+      <div id="tip"></div>
+    </main>
+
+    <footer id="cards"></footer>
+  </div>
+
+  <div id="results" class="overlay hidden">
+    <div class="panel">
+      <h2 id="res-title">Victory!</h2>
+      <div id="res-stars"></div>
+      <p id="res-pct"></p>
+      <div id="res-loot"></div>
+      <p id="res-tip" class="tip"></p>
+      <button id="again" class="big-btn">Raid Again</button>
+    </div>
+  </div>
+
+  <div id="help" class="overlay">
+    <div class="panel">
+      <h2>Pepper Platoon</h2>
+      <p class="sub">Sauce Raid prototype</p>
+      <ul>
+        <li><b>Deploy:</b> pick a pepper below, then tap (or drag) on the red picnic blanket.</li>
+        <li><b>Jalapeños</b> swarm the nearest building. <b>Bell Peppers</b> deal no damage but taunt nearby turrets. <b>Habaneros</b> lob explosive seeds over walls.</li>
+        <li><b>Heat</b> builds over time and spikes when buildings fall. Spend 50 on a <b>Hot Sauce Strike</b>. It's great on walls.</li>
+        <li>Watch out for hidden <b>Spicy Spores</b>. Clumped troops get torched!</li>
+        <li>★ 50% destroyed · ★ Compost Bin destroyed · ★ 100% destroyed</li>
+      </ul>
+      <button id="help-close" class="big-btn">Let's Get Spicy</button>
+    </div>
+  </div>
+
+  <script type="module" src="js/main.js"></script>
+</body>
+</html>
