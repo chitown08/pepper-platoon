@@ -1,7 +1,7 @@
 // Raid simulation: units, defenses, projectiles, traps, Heat and scoring.
 
 import {
-  COLS, ROWS, DEPLOY_ROWS, RAID_TIME, UNITS, BUILDINGS, TRAP, HEAT, SPELL, LAYOUT, WALL_PATH_COST,
+  COLS, ROWS, DEPLOY_ROWS, RAID_TIME, UNITS, BUILDINGS, TRAP, HEAT, SPELL, LAYOUT, WALL_PATH_COST, HIVE,
 } from './config.js';
 import { Grid, distToRect, findPath } from './grid.js';
 import { sfx } from './audio.js';
@@ -10,9 +10,14 @@ const rand = (a, b) => a + Math.random() * (b - a);
 let nextId = 1;
 
 export class Raid {
-  constructor() { this.reset(); }
+  // opts.army: { jalapeno: n, ... } (defaults to the test army)
+  // opts.level: Bug Hive level (0 = full-strength test hive)
+  constructor(opts = {}) { this.opts = opts; this.reset(); }
 
   reset() {
+    this.level = this.opts.level || 0;
+    this.strength = HIVE.strength(this.level);
+    this.lootMult = HIVE.loot(this.level);
     this.grid = new Grid(COLS, ROWS);
     this.buildings = [];
     this.traps = [];
@@ -30,7 +35,7 @@ export class Raid {
     this.pathsDirty = false;
     this.loot = { sun: 0, water: 0 };
     this.army = {};
-    for (const k in UNITS) this.army[k] = UNITS[k].army;
+    for (const k in UNITS) this.army[k] = this.opts.army ? (this.opts.army[k] || 0) : UNITS[k].army;
 
     for (const b of LAYOUT.buildings) this.addBuilding(b.type, b.x, b.y);
     for (const [x, y] of LAYOUT.walls) this.addBuilding('wall', x, y);
@@ -46,7 +51,9 @@ export class Raid {
     const b = {
       id: nextId++, type, def, x, y, w: def.size, h: def.size,
       cx: x + def.size / 2, cy: y + def.size / 2,
-      hp: def.hp, maxHp: def.hp, alive: true, counts: type !== 'wall',
+      hp: def.hp * this.strength, maxHp: def.hp * this.strength, alive: true, counts: type !== 'wall',
+      dmg: (def.dmg || 0) * this.strength,
+      loot: def.loot ? { sun: Math.round(def.loot.sun * this.lootMult), water: Math.round(def.loot.water * this.lootMult) } : null,
       cool: rand(0, 0.5), target: null, aim: -Math.PI / 2, hitT: 0, fireT: 0,
     };
     this.buildings.push(b);
@@ -274,11 +281,11 @@ export class Raid {
     this.destroyedCount++;
     this.heat = Math.min(HEAT.max, this.heat + HEAT.perBuilding);
     this.floatText(b.cx, b.y, `+${HEAT.perBuilding} Heat`, '#ff7a1a');
-    if (b.def.loot) {
-      this.loot.sun += b.def.loot.sun;
-      this.loot.water += b.def.loot.water;
-      if (b.def.loot.sun) this.floatText(b.cx - 0.6, b.cy, `+${b.def.loot.sun}☀️`, '#ffd23f');
-      if (b.def.loot.water) this.floatText(b.cx + 0.6, b.cy + 0.3, `+${b.def.loot.water}💧`, '#7fd3ff');
+    if (b.loot) {
+      this.loot.sun += b.loot.sun;
+      this.loot.water += b.loot.water;
+      if (b.loot.sun) this.floatText(b.cx - 0.6, b.cy, `+${b.loot.sun}☀️`, '#ffd23f');
+      if (b.loot.water) this.floatText(b.cx + 0.6, b.cy + 0.3, `+${b.loot.water}💧`, '#7fd3ff');
     }
     this.shake = Math.max(this.shake, b.type === 'compost' ? 0.5 : 0.2);
     sfx('boom');
@@ -337,10 +344,10 @@ export class Raid {
     b.fireT = 0.1;
     const mx = b.cx + Math.cos(b.aim) * 0.7, my = b.cy - 0.35 + Math.sin(b.aim) * 0.7;
     if (b.def.attack === 'thorn') {
-      this.projectiles.push({ kind: 'thorn', x: mx, y: my, target: t, lx: t.x, ly: t.y, speed: 12, dmg: b.def.dmg });
+      this.projectiles.push({ kind: 'thorn', x: mx, y: my, target: t, lx: t.x, ly: t.y, speed: 12, dmg: b.dmg });
       sfx('thorn');
     } else if (b.def.attack === 'sap') {
-      this.projectiles.push({ kind: 'sap', sx: mx, sy: my, tx: t.x, ty: t.y, t: 0, dur: 0.8, dmg: b.def.dmg, splash: b.def.splash, slow: b.def.slow });
+      this.projectiles.push({ kind: 'sap', sx: mx, sy: my, tx: t.x, ty: t.y, t: 0, dur: 0.8, dmg: b.dmg, splash: b.def.splash, slow: b.def.slow });
       sfx('sap');
     }
   }
@@ -357,7 +364,7 @@ export class Raid {
       t.timer -= dt;
       if (t.timer <= 0) {
         t.state = 'gone';
-        for (const u of this.units) if (Math.hypot(u.x - t.x, u.y - t.y) <= TRAP.radius) this.damageUnit(u, TRAP.dmg);
+        for (const u of this.units) if (Math.hypot(u.x - t.x, u.y - t.y) <= TRAP.radius) this.damageUnit(u, TRAP.dmg * this.strength);
         for (let i = 0; i < 30; i++) {
           const a = rand(0, Math.PI * 2), s = rand(1, 4);
           this.particle(t.x, t.y, Math.cos(a) * s, Math.sin(a) * s - 1, rand(0.5, 1.1), i % 2 ? '#ff9a2e' : '#e8452c', rand(0.1, 0.25), 0.5);

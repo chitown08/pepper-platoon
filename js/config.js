@@ -69,3 +69,54 @@ export const LAYOUT = {
   walls: ring,
   traps: [[7, 16], [3, 12], [11, 11], [8, 2]],
 };
+
+// ---------- Bug Hive difficulty by level ----------
+// level 0 = the original full-strength test hive (used by tools/sim.js)
+export const HIVE = {
+  // multiplies HP & damage; tuned so hive N is beatable with roughly 20*N housing of troops
+  strength: (lvl) => (!lvl ? 1 : lvl <= 6 ? [0, 0.55, 0.75, 0.92, 1.12, 1.4, 1.7][lvl] : 1.7 + 0.3 * (lvl - 6)),
+  loot: (lvl) => (lvl ? 0.3 + 0.12 * (lvl - 1) : 1),        // multiplies loot
+};
+
+// ---------- The Garden (home base) ----------
+
+export const GARDEN = { cols: 15, rows: 19 };
+
+// Housing space each troop takes up in your Blossoms, and its Water cost to grow.
+export const TROOPS = {
+  jalapeno: { housing: 1, cost: 20 },
+  habanero: { housing: 2, cost: 50 },
+  bell:     { housing: 4, cost: 120 },
+};
+
+// Stem (HQ) levels. Upgrading grows the buildable plot and raises limits.
+// cost = Sunlight to reach that level.
+export const STEM_LEVELS = [
+  null,
+  { cost: 0,     area: 9,  cap: { sun: 3000,  water: 3000 },  limits: { leaf: 2, root: 2, blossom: 1 } },
+  { cost: 2000,  area: 11, cap: { sun: 8000,  water: 8000 },  limits: { leaf: 3, root: 3, blossom: 2 } },
+  { cost: 6000,  area: 13, cap: { sun: 20000, water: 20000 }, limits: { leaf: 4, root: 4, blossom: 3 } },
+  { cost: 15000, area: 15, cap: { sun: 45000, water: 45000 }, limits: { leaf: 5, root: 5, blossom: 4 } },
+];
+
+// Garden structures. Arrays are indexed by level (index 0 unused).
+// cost = Sunlight to build (level 1) or upgrade to that level.
+export const PLANTS = {
+  leaf: {
+    name: 'Leaf', size: 2, blurb: 'Soaks up Sunlight. Tap it to harvest.',
+    makes: 'sun', cost: [0, 100, 500, 1500, 4000],
+    rate: [0, 20, 35, 55, 80],          // per minute
+    store: [0, 200, 450, 900, 1600],
+  },
+  root: {
+    name: 'Root', size: 2, blurb: 'Draws Water from the soil. Tap it to harvest.',
+    makes: 'water', cost: [0, 100, 500, 1500, 4000],
+    rate: [0, 20, 35, 55, 80],
+    store: [0, 200, 450, 900, 1600],
+  },
+  blossom: {
+    name: 'Blossom', size: 2, blurb: 'Houses your platoon. More Blossoms, bigger army.',
+    cost: [0, 300, 1200, 3500, 8000],
+    housing: [0, 20, 30, 40, 50],
+  },
+};

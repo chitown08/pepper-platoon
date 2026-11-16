@@ -2,14 +2,21 @@
 
 A mobile-first web strategy game: grow a sentient pepper plant, then lead platoons of volatile pepper warriors on **Sauce Raids** against garden pests.
 
-## Current state: Sauce Raid prototype
+## Current state: Garden + Sauce Raids
 
-One playable raid against an AI **Bug Hive**:
+**The Garden (home base)**: a top-down plot with your sentient Stem in the middle and vines running out to each building.
+- **Leaves** make ☀️ Sunlight and **Roots** draw 💧 Water over time, even while the game is closed. Tap them to harvest.
+- **Blossoms** house your platoon. Growing troops costs Water.
+- Growing the **Stem** enlarges the plot, raises storage and unlocks more and higher-level buildings.
+- Tap any building to upgrade or move it.
+- Progress is saved in the browser on this device.
 
-- **Troops:** Jalapeño (swarm infantry), Bell Pepper (tank, taunts turrets, no damage), Habanero (grenadier, lobs over walls)
-- **Bug defenses:** Thorn Shooter (rapid single-target), Sap Sprayer (slowing AoE that targets clumps), hidden Spicy Spore traps, Twig & Pebble Walls
+**Sauce Raids**: attack an AI **Bug Hive** with the troops you've grown.
+- **Troops:** Jalapeño (swarm infantry), Bell Pepper (tank that taunts turrets and deals no damage), Habanero (grenadier that lobs over walls)
+- **Bug defenses:** Thorn Shooter (rapid single target), Sap Sprayer (slowing goo aimed at clumps), hidden Spicy Spore traps, Twig & Pebble Walls
 - **Heat:** builds over time and spikes on kills; spend 50 for a **Hot Sauce Strike** (extra damage to walls)
 - **Stars:** ★ 50% destroyed · ★ Compost Bin destroyed · ★ 100% destroyed
+- Destroying the Compost Bin unlocks a tougher, richer Bug Hive. Deployed troops are used up; the rest come home.
 
 ## Play it locally
 
@@ -26,13 +33,17 @@ Then open http://localhost:8000.
 | File | What it does |
 |---|---|
 | `index.html`, `style.css` | Page, HUD, cards, menus |
-| `js/config.js` | **All balance numbers and the base layout.** Tweak here first. |
+| `js/config.js` | **All balance numbers, costs and the Bug Hive layout.** Tweak here first. |
 | `js/game.js` | Raid simulation: troop AI, defenses, traps, Heat, scoring |
 | `js/grid.js` | Tile grid and pathfinding |
 | `js/render.js` | All the drawing (every sprite is drawn in code, no image files) |
 | `js/audio.js` | Synthesized sound effects |
-| `js/main.js` | Wires input, HUD and the game loop together |
-| `tools/sim.js` | Headless balance tester. Run `npm run sim` (needs Node.js). |
+| `js/main.js` | Boots the game and switches between Garden and Raid |
+| `js/state.js` | Save data and the economy (harvest, build, upgrade, train) |
+| `js/garden.js`, `js/garden-art.js` | The Garden screen, its menus and art |
+| `js/raid-scene.js` | Raid screen controls, HUD and results |
+| `tools/sim.js` | Headless raid balance tester. Run `npm run sim` (needs Node.js). |
+| `tools/progression.js` | Checks each Bug Hive level against a typical army for that stage |
 
 ## Design decisions so far
 

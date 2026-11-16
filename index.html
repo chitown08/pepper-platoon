@@ -14,8 +14,26 @@
   <link rel="stylesheet" href="style.css">
 </head>
 <body>
-  <div id="app">
-    <header id="hud">
+  <div id="app" data-scene="garden">
+    <!-- Garden HUD -->
+    <header id="ghud" class="garden-only">
+      <div class="res sun">
+        <span class="ri">☀️</span>
+        <div class="rbody"><b id="g-sun">0</b><div class="rbar"><i id="g-sun-bar"></i></div></div>
+      </div>
+      <div class="res water">
+        <span class="ri">💧</span>
+        <div class="rbody"><b id="g-water">0</b><div class="rbar"><i id="g-water-bar"></i></div></div>
+      </div>
+      <div class="res seeds"><span class="ri">🌱</span><b id="g-seeds">0</b></div>
+      <div class="hud-btns">
+        <button class="icon-btn help-btn" aria-label="How to play">?</button>
+        <button class="icon-btn mute" aria-label="Toggle sound">🔊</button>
+      </div>
+    </header>
+
+    <!-- Raid HUD -->
+    <header id="hud" class="raid-only">
       <div class="hud-block">
         <span class="label">Time</span>
         <span id="timer">2:30</span>
@@ -25,8 +43,8 @@
         <span id="pct">0%</span>
       </div>
       <div class="hud-block right">
-        <button id="help-btn" class="icon-btn" aria-label="How to play">?</button>
-        <button id="mute" class="icon-btn" aria-label="Toggle sound">🔊</button>
+        <button class="icon-btn help-btn" aria-label="How to play">?</button>
+        <button class="icon-btn mute" aria-label="Toggle sound">🔊</button>
       </div>
       <div id="heat">
         <span class="label">🔥 Heat</span>
@@ -37,14 +55,20 @@
 
     <main id="stage">
       <canvas id="game"></canvas>
-      <div id="banner">
+      <div id="banner" class="raid-only">
         <b>Scouting the Bug Hive</b>
         <span>Tap buildings to inspect · Tap the picnic blanket to deploy and start the raid</span>
       </div>
+      <div id="sheet" class="garden-only hidden"></div>
       <div id="tip"></div>
     </main>
 
-    <footer id="cards"></footer>
+    <footer id="gbar" class="garden-only">
+      <button id="g-build" class="gbtn"><b>Plant</b><small>Build &amp; grow</small></button>
+      <button id="g-army" class="gbtn"><b>Platoon</b><small id="g-army-sub">0 / 0</small></button>
+      <button id="g-raid" class="gbtn raid"><b>Raid!</b><small id="g-raid-sub">Bug Hive Lv 1</small></button>
+    </footer>
+    <footer id="cards" class="raid-only"></footer>
   </div>
 
   <div id="results" class="overlay hidden">
@@ -54,22 +78,36 @@
       <p id="res-pct"></p>
       <div id="res-loot"></div>
       <p id="res-tip" class="tip"></p>
-      <button id="again" class="big-btn">Raid Again</button>
+      <button id="back-garden" class="big-btn">Back to the Garden</button>
     </div>
   </div>
 
-  <div id="help" class="overlay">
+  <div id="help" class="overlay hidden">
     <div class="panel">
       <h2>Pepper Platoon</h2>
-      <p class="sub">Sauce Raid prototype</p>
-      <ul>
-        <li><b>Deploy:</b> pick a pepper below, then tap (or drag) on the red picnic blanket.</li>
-        <li><b>Jalapeños</b> swarm the nearest building. <b>Bell Peppers</b> deal no damage but taunt nearby turrets. <b>Habaneros</b> lob explosive seeds over walls.</li>
-        <li><b>Heat</b> builds over time and spikes when buildings fall. Spend 50 on a <b>Hot Sauce Strike</b>. It's great on walls.</li>
-        <li>Watch out for hidden <b>Spicy Spores</b>. Clumped troops get torched!</li>
-        <li>★ 50% destroyed · ★ Compost Bin destroyed · ★ 100% destroyed</li>
-      </ul>
+      <div id="help-garden">
+        <p class="sub">Your Garden</p>
+        <ul>
+          <li><b>Leaves</b> make ☀️ Sunlight and <b>Roots</b> draw 💧 Water, even while you're away. Tap them when a bubble pops up.</li>
+          <li><b>Sunlight</b> plants and upgrades things. <b>Water</b> grows troops.</li>
+          <li><b>Blossoms</b> house your platoon. Tap <b>Platoon</b> to grow troops.</li>
+          <li>Grow your <b>Stem</b> for a bigger plot, more storage and more buildings.</li>
+          <li>Hit <b>Raid!</b> to attack a Bug Hive. Destroy its Compost Bin to unlock a tougher hive with better loot.</li>
+        </ul>
+      </div>
+      <div id="help-raid" hidden>
+        <p class="sub">Sauce Raids</p>
+        <ul>
+          <li><b>Deploy:</b> pick a pepper below, then tap (or drag) on the red picnic blanket.</li>
+          <li><b>Jalapeños</b> swarm the nearest building. <b>Bell Peppers</b> deal no damage but taunt nearby turrets. <b>Habaneros</b> lob explosive seeds over walls.</li>
+          <li><b>Heat</b> builds over time and spikes when buildings fall. Spend 50 on a <b>Hot Sauce Strike</b>. It's great on walls.</li>
+          <li>Watch out for hidden <b>Spicy Spores</b>. Clumped troops get torched!</li>
+          <li>★ 50% destroyed · ★ Compost Bin destroyed · ★ 100% destroyed</li>
+          <li>Troops you deploy are used up. Ones you don't deploy come home.</li>
+        </ul>
+      </div>
       <button id="help-close" class="big-btn">Let's Get Spicy</button>
+      <button id="reset" class="link-btn">Start over</button>
     </div>
   </div>
 
