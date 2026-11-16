@@ -45,6 +45,12 @@ export const BUILDINGS = {
   dew:     { name: 'Dew Drop Tank', size: 2, hp: 750, loot: { sun: 0, water: 1200 } },
   nursery: { name: 'Larva Nursery', size: 2, hp: 600, loot: { sun: 300, water: 300 } },
   wall:    { name: 'Twig & Pebble Wall', size: 1, hp: 700 },
+  // your garden, when bugs attack it
+  stem:    { name: 'The Stem', size: 3, hp: 4000 },
+  leaf:    { name: 'Leaf', size: 2, hp: 400 },
+  root:    { name: 'Root', size: 2, hp: 400 },
+  blossom: { name: 'Blossom', size: 2, hp: 500 },
+  lab:     { name: 'Flavor Lab', size: 2, hp: 500 },
 };
 
 export const TRAP = { name: 'Spicy Spore', trigger: 0.9, radius: 1.8, dmg: 200, fuse: 0.35 };
@@ -257,10 +263,10 @@ export const TROOPS = {
 // cost = Sunlight to reach that level.
 export const STEM_LEVELS = [
   null,
-  { cost: 0,     area: 9,  cap: { sun: 3000,  water: 3000 },  limits: { leaf: 2, root: 2, blossom: 1, lab: 1 } },
-  { cost: 2000,  area: 11, cap: { sun: 8000,  water: 8000 },  limits: { leaf: 3, root: 3, blossom: 2, lab: 1 } },
-  { cost: 6000,  area: 13, cap: { sun: 20000, water: 20000 }, limits: { leaf: 4, root: 4, blossom: 3, lab: 1 } },
-  { cost: 15000, area: 15, cap: { sun: 45000, water: 45000 }, limits: { leaf: 5, root: 5, blossom: 4, lab: 1 } },
+  { cost: 0,     area: 9,  cap: { sun: 3000,  water: 3000 },  limits: { leaf: 2, root: 2, blossom: 1, lab: 1, thorn: 1, sap: 0, spore: 2, hedge: 12 } },
+  { cost: 2000,  area: 11, cap: { sun: 8000,  water: 8000 },  limits: { leaf: 3, root: 3, blossom: 2, lab: 1, thorn: 2, sap: 1, spore: 3, hedge: 20 } },
+  { cost: 6000,  area: 13, cap: { sun: 20000, water: 20000 }, limits: { leaf: 4, root: 4, blossom: 3, lab: 1, thorn: 3, sap: 2, spore: 4, hedge: 30 } },
+  { cost: 15000, area: 15, cap: { sun: 45000, water: 45000 }, limits: { leaf: 5, root: 5, blossom: 4, lab: 1, thorn: 4, sap: 2, spore: 5, hedge: 40 } },
 ];
 
 // Garden structures. Arrays are indexed by level (index 0 unused).
@@ -286,6 +292,23 @@ export const PLANTS = {
   lab: {
     name: 'Flavor Lab', size: 2, blurb: 'Brew flavors that change how your troops fight.',
     cost: [0, 400],
+  },
+  // ----- defenses -----
+  thorn: {
+    name: 'Thorn Shooter', size: 2, defense: true, blurb: 'Rapid-fire thorns at one bug at a time.',
+    cost: [0, 300, 900, 2500, 6000],
+  },
+  sap: {
+    name: 'Sap Sprayer', size: 2, defense: true, blurb: 'Lobs sticky sap that slows groups of bugs.',
+    cost: [0, 500, 1500, 4000, 8000],
+  },
+  spore: {
+    name: 'Spicy Spore', size: 1, defense: true, blurb: 'Hidden trap. Blows up on the first bug to step near.',
+    cost: [0, 150],
+  },
+  hedge: {
+    name: 'Bramble Hedge', size: 1, defense: true, blurb: 'Thorny wall segment. Tap or drag to plant a row.',
+    cost: [0, 25],
   },
 };
 
@@ -337,3 +360,26 @@ export const POCKETS = [
   { kind: 'geyser',  rows: [6, 7], name: 'Fertilizer Geyser' },
   { kind: 'rare',    rows: [8, 8], name: 'Ancient Ingredient' },
 ];
+
+// ---------- Bug counter-attacks on your garden ----------
+
+// Bugs use the same fields as UNITS. armor = share of damage ignored. fly = goes over walls.
+export const BUGS = {
+  aphid:  { name: 'Aphid', role: 'Swarm', hp: 55, dmg: 9, atkInterval: 0.7, range: 0.6, speed: 1.9, radius: 0.18, targeting: 'any' },
+  beetle: { name: 'Stag Beetle', role: 'Armored', hp: 650, dmg: 35, atkInterval: 1.2, range: 0.6, speed: 0.85, radius: 0.36, targeting: 'any', armor: 0.4 },
+  wasp:   { name: 'Wasp', role: 'Flyer', hp: 80, dmg: 18, atkInterval: 0.8, range: 0.6, speed: 2.2, radius: 0.2, targeting: 'defense', fly: true },
+};
+
+export const DEFENSE = {
+  time: 90,                                  // seconds the swarm has to fell your Stem
+  hpByLevel: [0, 1, 1.3, 1.65, 2.0, 2.4],    // garden building HP multiplier by level
+  dmgByLevel: [0, 1, 1.35, 1.75, 2.2, 2.6],  // Thorn Shooter / Sap Sprayer damage multiplier by level
+  // swarm size and toughness from the threat level (1 + hives you've conquered)
+  swarm: (w) => ({ aphid: 6 + 3 * w, beetle: Math.floor(w / 2), wasp: w >= 3 ? w - 1 : 0 }),
+  bugStrength: (w) => 1 + 0.1 * (w - 1),
+  waves: [0, 7, 14],                         // seconds when each wave arrives
+  bounty: (w) => ({ sun: 150 * w, seeds: 1 }),
+  lossShare: 0.25,                           // share of stored Sunlight & Water the bugs carry off
+  shieldHours: 6,                            // "Wilted" protection after a loss
+  nextHours: [2, 3],                         // hours until the next swarm after a defense
+};

@@ -1,6 +1,7 @@
 // All drawing. World coordinates are in tiles; the canvas transform maps tiles to pixels.
 
 import { COLS, ROWS, DEPLOY_ROWS, SPELL, UNITS, FLAVORS } from './config.js';
+import { drawStem, PLANT_ART } from './garden-art.js';
 
 // ---------- small helpers ----------
 
@@ -166,7 +167,10 @@ export function drawReaperArt(c, flash) {
   c.beginPath(); c.moveTo(0.08, 0.07); c.lineTo(0.11, 0.13); c.lineTo(0.14, 0.07); c.fill();
 }
 
-const UNIT_ART = { jalapeno: drawJalapenoArt, bell: drawBellArt, habanero: drawHabaneroArt, ghost: drawGhostArt, reaper: drawReaperArt };
+const UNIT_ART = {
+  jalapeno: drawJalapenoArt, bell: drawBellArt, habanero: drawHabaneroArt, ghost: drawGhostArt, reaper: drawReaperArt,
+  aphid: (c, f) => drawAphidBug(c, f), beetle: (c, f) => drawBeetleBug(c, f), wasp: (c, f) => drawWaspBug(c, f),
+};
 
 export function drawUnitIcon(canvas, type) {
   const c = canvas.getContext('2d');
@@ -295,6 +299,11 @@ function drawThorn(c, b, t) {
   hg.addColorStop(0, '#7bd06a'); hg.addColorStop(1, '#2f7a28');
   c.beginPath(); c.arc(cx, hy, 0.4, 0, Math.PI * 2); c.fillStyle = hg; c.fill();
   c.strokeStyle = '#1e4a19'; c.lineWidth = 0.04; c.stroke();
+  if (b.friendly) {
+    // your own Thorn Shooter: a fierce little pepper bud
+    angryEyes(c, cx, hy - 0.04, 0.11, 0.06, Math.cos(b.aim));
+    return;
+  }
   // bug pilot eyes
   ellipse(c, cx - 0.1, hy - 0.05, 0.07, 0.07, '#ffef5a');
   ellipse(c, cx + 0.1, hy - 0.05, 0.07, 0.07, '#ffef5a');
@@ -403,9 +412,33 @@ function drawNursery(c, b, t) {
   });
 }
 
+// Bramble Hedge tile. isHedge(x, y) says whether a neighbouring tile is also hedge.
+export function drawHedge(c, x, y, seed, isHedge) {
+  const cx = x + 0.5, cy = y + 0.5;
+  ellipse(c, cx, cy + 0.2, 0.46, 0.2, 'rgba(0,0,0,0.2)');
+  c.strokeStyle = '#5c3b1c'; c.lineWidth = 0.12; c.lineCap = 'round';
+  for (const [dx, dy] of [[1, 0], [0, 1]]) {
+    if (isHedge(x + dx, y + dy)) { c.beginPath(); c.moveTo(cx, cy); c.lineTo(cx + dx, cy + dy); c.stroke(); }
+  }
+  const blobs = [[-0.2, 0.05, 0.24], [0.2, 0.06, 0.23], [0, -0.13, 0.26], [0.02, 0.12, 0.22]];
+  for (const [dx, dy, r] of blobs) ellipse(c, cx + dx, cy + dy, r, r * 0.9, hash(seed + dx * 7) > 0.5 ? '#2f7a28' : '#3a8f30');
+  ellipse(c, cx - 0.08, cy - 0.18, 0.12, 0.07, 'rgba(160,230,120,0.4)');
+  c.fillStyle = '#efe6c4';
+  for (let i = 0; i < 5; i++) {
+    const a = hash(seed + i) * Math.PI * 2, r = 0.22 + hash(seed + i + 3) * 0.1;
+    const px = cx + Math.cos(a) * r, py = cy + Math.sin(a) * r * 0.85;
+    c.beginPath(); c.moveTo(px, py); c.lineTo(px + Math.cos(a) * 0.12, py + Math.sin(a) * 0.12); c.lineTo(px + Math.cos(a + 1.6) * 0.04, py + Math.sin(a + 1.6) * 0.04); c.fill();
+  }
+  if (hash(seed + 11) > 0.6) ellipse(c, cx + 0.15, cy - 0.05, 0.05, 0.05, '#d9241a'); // a tiny pepper
+}
+
 function drawWall(c, b, game) {
   const { x, y } = b;
   const cx = x + 0.5, cy = y + 0.5;
+  if (b.style === 'hedge') {
+    drawHedge(c, x, y, b.id, (nx, ny) => { const n = game.grid.get(nx, ny); return !!(n && n.alive && n.type === 'wall'); });
+    return;
+  }
   // twigs to neighbours
   c.lineCap = 'round';
   for (const [dx, dy] of [[1, 0], [0, 1]]) {
@@ -427,7 +460,73 @@ function drawWall(c, b, game) {
   }
 }
 
-const BUILDING_ART = { compost: drawCompost, thorn: drawThorn, sap: drawSap, aphid: drawAphid, dew: drawDew, nursery: drawNursery };
+const BUILDING_ART = {
+  compost: drawCompost, thorn: drawThorn, sap: drawSap, aphid: drawAphid, dew: drawDew, nursery: drawNursery,
+  // your garden, when it's under attack
+  stem: (c, b, t) => drawStem(c, b.x, b.y, b.level, t),
+  leaf: (c, b, t) => PLANT_ART.leaf(c, b.x, b.y, b.level, t),
+  root: (c, b, t) => PLANT_ART.root(c, b.x, b.y, b.level, t),
+  blossom: (c, b, t) => PLANT_ART.blossom(c, b.x, b.y, b.level, t, 0, 0),
+  lab: (c, b, t) => PLANT_ART.lab(c, b.x, b.y, b.level, t),
+};
+
+// Lets the Garden draw Thorn Shooters and Sap Sprayers with the battle art.
+export function drawTurret(c, type, x, y, level, t, aim = -Math.PI / 2, id = 1) {
+  const b = { x, y, w: 2, h: 2, cx: x + 1, cy: y + 1, aim, fireT: 0, id, friendly: true, level };
+  BUILDING_ART[type](c, b, t);
+}
+
+// ---------- bugs ----------
+
+function bugLegs(c, n, len, spread, color) {
+  c.strokeStyle = color; c.lineWidth = 0.035; c.lineCap = 'round';
+  for (let i = 0; i < n; i++) {
+    const y = (i - (n - 1) / 2) * spread;
+    for (const s of [-1, 1]) { c.beginPath(); c.moveTo(0.05, y); c.lineTo(0.05 + s * 0 + 0.0, y); c.lineTo(s * len, y + 0.12); c.stroke(); }
+  }
+}
+
+export function drawAphidBug(c, flash) {
+  bugLegs(c, 3, 0.3, 0.14, '#5c8a2a');
+  const g = c.createRadialGradient(-0.08, -0.08, 0.02, 0, 0, 0.32);
+  g.addColorStop(0, '#e4ffb0'); g.addColorStop(1, '#8cc63f');
+  ellipse(c, 0, 0.05, 0.26, 0.3, flash ? '#fff' : g);
+  ellipse(c, 0.18, -0.2, 0.13, 0.12, flash ? '#fff' : '#9bd14a');
+  ellipse(c, 0.23, -0.23, 0.035, 0.04, '#111');
+  c.strokeStyle = '#5c8a2a'; c.lineWidth = 0.03;
+  c.beginPath(); c.moveTo(0.22, -0.3); c.quadraticCurveTo(0.3, -0.5, 0.42, -0.45); c.stroke();
+}
+
+export function drawBeetleBug(c, flash) {
+  bugLegs(c, 3, 0.42, 0.18, '#1a120a');
+  // mandibles
+  c.strokeStyle = '#3a2412'; c.lineWidth = 0.07;
+  c.beginPath(); c.moveTo(0.3, -0.25); c.quadraticCurveTo(0.6, -0.45, 0.5, -0.1); c.stroke();
+  c.beginPath(); c.moveTo(0.3, -0.15); c.quadraticCurveTo(0.62, -0.05, 0.45, 0.08); c.stroke();
+  const g = c.createLinearGradient(-0.3, -0.3, 0.3, 0.3);
+  g.addColorStop(0, '#6b4a2a'); g.addColorStop(1, '#2a1a0c');
+  ellipse(c, -0.02, 0.08, 0.36, 0.36, flash ? '#fff' : g);
+  c.strokeStyle = '#120a04'; c.lineWidth = 0.03;
+  c.beginPath(); c.moveTo(-0.02, -0.25); c.lineTo(-0.02, 0.43); c.stroke();
+  ellipse(c, -0.12, -0.05, 0.08, 0.14, 'rgba(255,230,190,0.25)');
+  ellipse(c, 0.22, -0.2, 0.15, 0.13, flash ? '#fff' : '#3a2412');
+  ellipse(c, 0.27, -0.25, 0.04, 0.035, '#ff5a3a');
+}
+
+export function drawWaspBug(c, flash) {
+  // wings flutter
+  const flap = Math.sin(performance.now() / 30) * 0.08;
+  ellipse(c, -0.05, -0.3 - flap, 0.22, 0.12, 'rgba(220,240,255,0.7)');
+  ellipse(c, 0.12, -0.32 + flap, 0.2, 0.1, 'rgba(220,240,255,0.7)');
+  c.save(); c.beginPath(); c.ellipse(-0.05, 0.05, 0.3, 0.17, 0, 0, Math.PI * 2); c.clip();
+  c.fillStyle = flash ? '#fff' : '#ffd23f'; c.fillRect(-0.4, -0.2, 0.8, 0.4);
+  c.fillStyle = '#1a1a1a';
+  for (const x of [-0.25, -0.08, 0.09]) c.fillRect(x, -0.2, 0.07, 0.4);
+  c.restore();
+  c.fillStyle = '#1a1a1a'; c.beginPath(); c.moveTo(-0.34, 0.05); c.lineTo(-0.48, 0.1); c.lineTo(-0.33, 0.12); c.fill();
+  ellipse(c, 0.3, -0.02, 0.12, 0.11, flash ? '#fff' : '#1a1a1a');
+  ellipse(c, 0.34, -0.05, 0.04, 0.045, '#ff3b2e');
+}
 
 // ---------- unit drawing in world ----------
 
@@ -480,6 +579,15 @@ export class Renderer {
     this.canvas = canvas;
     this.c = canvas.getContext('2d');
     this.bg = document.createElement('canvas');
+    this.mode = 'raid';
+    this.area = null;
+  }
+
+  // 'raid' (picnic blanket) or 'defense' (your tilled garden plot in the middle)
+  setScene(mode, area) {
+    this.mode = mode;
+    this.area = area;
+    if (this.canvas.width) this.buildBackground();
   }
 
   resize(cssW, cssH) {
@@ -520,6 +628,16 @@ export class Renderer {
       }
       ellipse(c, x, y, 0.04, 0.04, '#f5a623');
     }
+    if (this.mode === 'defense' && this.area) {
+      const a = this.area;
+      c.fillStyle = '#4a3020';
+      c.beginPath(); c.roundRect(a.x - 0.1, a.y - 0.1, a.w + 0.2, a.h + 0.2, 0.5); c.fill();
+      c.fillStyle = '#6b4528';
+      c.beginPath(); c.roundRect(a.x, a.y, a.w, a.h, 0.4); c.fill();
+      c.strokeStyle = 'rgba(40,22,10,0.35)'; c.lineWidth = 0.05;
+      for (let y = a.y + 0.5; y < a.y + a.h; y += 0.5) { c.beginPath(); c.moveTo(a.x + 0.2, y); c.lineTo(a.x + a.w - 0.2, y); c.stroke(); }
+      return;
+    }
     // picnic blanket (gingham)
     const top = ROWS - DEPLOY_ROWS;
     c.fillStyle = '#fbf3e4';
@@ -546,7 +664,7 @@ export class Renderer {
     c.setTransform(this.S, 0, 0, this.S, sx * this.S, sy * this.S);
 
     // deploy zone highlight
-    if (ui.selected && !ui.spellArmed && (game.phase === 'scout' || game.phase === 'battle')) {
+    if (!game.defense && ui.selected && !ui.spellArmed && (game.phase === 'scout' || game.phase === 'battle')) {
       const a = 0.15 + Math.sin(t * 4) * 0.08;
       c.fillStyle = `rgba(255,255,255,${a})`;
       c.fillRect(0, ROWS - DEPLOY_ROWS, COLS, DEPLOY_ROWS);

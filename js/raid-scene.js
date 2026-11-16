@@ -1,6 +1,6 @@
 // The raid scene: wires the raid simulation, renderer and on-screen controls together.
 
-import { UNITS, SPELL, FLAVORS } from './config.js';
+import { UNITS, SPELL, FLAVORS, BUGS } from './config.js';
 import { Raid } from './game.js';
 import { Renderer, drawUnitIcon, drawSpellIcon } from './render.js';
 import { sfx, unlockAudio } from './audio.js';
@@ -67,7 +67,12 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
     const s = Math.ceil(game.time);
     timerEl.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`;
     timerEl.classList.toggle('low', game.time < 20 && game.phase === 'battle');
-    pctEl.textContent = Math.round(game.destruction * 100) + '%';
+    pctEl.textContent = Math.round(game.destruction * 100) + '%' + (game.defense ? ' damage' : '');
+    if (game.defense) {
+      const left = game.bugsTotal - game.bugsKilled;
+      $('#d-left').textContent = `${left} bug${left === 1 ? '' : 's'} left`;
+      $('#d-killed').textContent = `${game.bugsKilled} squashed`;
+    }
     heatEl.style.width = (game.heat) + '%';
     heatNum.textContent = Math.floor(game.heat);
     starEls.forEach((el, i) => el.classList.toggle('on', game.stars[i]));
@@ -82,6 +87,7 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
     const p = renderer.toWorld(e.clientX, e.clientY);
     ui.hover = p;
     if (game.phase === 'ending' || game.phase === 'over') return;
+    if (game.defense) return; // your defenses fight on their own
     if (ui.spellArmed) {
       if (!fresh) return;
       if (game.castSpell(p.x, p.y)) ui.spellArmed = false;
@@ -133,8 +139,23 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
 
   const results = $('#results');
   let shownResults = false;
+  function showDefenseResults() {
+    const lines = onFinish({ mode: 'defense', won: game.won });
+    $('#res-title').textContent = game.won ? 'Garden Defended!' : 'The Stem Wilted!';
+    $('#res-stars').innerHTML = `<span class="big-emoji">${game.won ? '🛡️' : '🥀'}</span>`;
+    $('#res-pct').textContent = `Squashed ${game.bugsKilled} of ${game.bugsTotal} bugs · ${Math.round(game.destruction * 100)}% of your garden damaged`;
+    $('#res-loot').innerHTML = `<ul class="dig-loot">${lines.map(l => `<li><span>${l.icon}</span>${l.text}</li>`).join('')}</ul>`;
+    $('#res-tip').textContent = game.won
+      ? 'More swarms will come. Upgrade your Thorn Shooters and keep your hedges thick.'
+      : 'Tip: surround your Stem with Bramble Hedges, put Spicy Spores where bugs gather, and upgrade Thorn Shooters.';
+    $('#back-garden').textContent = 'Back to the Garden';
+    results.classList.remove('hidden');
+  }
+
   function showResults() {
     shownResults = true;
+    if (game.defense) { showDefenseResults(); return; }
+    $('#back-garden').textContent = 'Back to the Map';
     const stars = game.stars.filter(Boolean).length;
     const seeds = stars;
     const banked = onFinish({ loot: { ...game.loot }, seeds, stars: [...game.stars], armyLeft: { ...game.army }, level: game.level });
@@ -157,8 +178,12 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
   // ---------- loop ----------
 
   let cardTick = 0;
+  let speed = 1;
+  const speedBtn = $('#d-speed');
+  speedBtn.onclick = () => { speed = speed === 1 ? 2 : 1; speedBtn.querySelector('b').textContent = `Speed ×${speed}`; sfx('click'); };
   function frame(dt) {
     game.update(dt);
+    if (game.defense && speed > 1) game.update(dt);
     ui.denyFlash = Math.max(0, ui.denyFlash - dt * 1.5);
     renderer.render(game, ui);
     updateHud();
@@ -168,8 +193,14 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
   }
 
   return {
-    enter({ army, level, flavors = {}, layout, lootScale = 1, name }) {
-      game = new Raid({ army, level, flavors, layout, lootScale });
+    enter({ army, level, flavors = {}, layout, lootScale = 1, name, mode, spawnPlan, bugStrength, area }) {
+      const defense = mode === 'defense';
+      document.querySelector('#app').dataset.mode = defense ? 'defense' : 'raid';
+      renderer.setScene(defense ? 'defense' : 'raid', area);
+      game = defense
+        ? new Raid({ mode, unitDefs: BUGS, core: 'stem', layout, spawnPlan, bugStrength })
+        : new Raid({ army, level, flavors, layout, lootScale });
+      this.mode = defense ? 'defense' : 'raid';
       let shown = 1;
       for (const [type, el] of Object.entries(cardEls)) {
         el.hidden = !game.army[type];

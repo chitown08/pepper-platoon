@@ -1,7 +1,7 @@
 // Raid simulation: units, defenses, projectiles, traps, Heat and scoring.
 
 import {
-  COLS, ROWS, DEPLOY_ROWS, RAID_TIME, UNITS, BUILDINGS, TRAP, HEAT, SPELL, LAYOUT, WALL_PATH_COST, HIVE, FLAVORS,
+  COLS, ROWS, DEPLOY_ROWS, RAID_TIME, UNITS, BUILDINGS, TRAP, HEAT, SPELL, LAYOUT, WALL_PATH_COST, HIVE, FLAVORS, DEFENSE,
 } from './config.js';
 import { Grid, distToRect, findPath } from './grid.js';
 import { sfx } from './audio.js';
@@ -14,11 +14,22 @@ export class Raid {
   // opts.level: Bug Hive level (0 = full-strength test hive)
   // opts.flavors: { jalapeno: 'garlic', ... } infusions from the Flavor Lab
   // opts.layout: parsed hive layout (defaults to the Sandbox); opts.lootScale: extra loot multiplier
+  // Defense mode (bugs attack your garden):
+  //   opts.mode = 'defense', opts.unitDefs = BUGS, opts.spawnPlan = [{ t, type, x, y }],
+  //   opts.bugStrength, opts.core = 'stem'; layout buildings may carry a level.
   constructor(opts = {}) { this.opts = opts; this.reset(); }
 
   reset() {
+    this.mode = this.opts.mode || 'raid';
+    this.defense = this.mode === 'defense';
+    this.defs = this.opts.unitDefs || UNITS;
+    this.core = this.opts.core || 'compost';
+    this.unitMult = this.opts.bugStrength || 1;
+    this.spawnPlan = [...(this.opts.spawnPlan || [])].sort((a, b) => a.t - b.t);
+    this.bugsTotal = this.spawnPlan.length;
+    this.bugsKilled = 0;
     this.level = this.opts.level || 0;
-    this.strength = HIVE.strength(this.level);
+    this.strength = this.defense ? 1 : HIVE.strength(this.level);
     this.lootMult = HIVE.loot(this.level) * (this.opts.lootScale ?? 1);
     this.flavors = this.opts.flavors || {};
     this.grid = new Grid(COLS, ROWS);
@@ -29,20 +40,20 @@ export class Raid {
     this.particles = [];
     this.texts = [];
     this.effects = [];
-    this.time = RAID_TIME;
+    this.time = this.defense ? DEFENSE.time : RAID_TIME;
     this.clock = 0;
-    this.phase = 'scout';       // scout -> battle -> ending -> over
+    this.phase = this.defense ? 'battle' : 'scout';  // scout -> battle -> ending -> over
     this.heat = HEAT.start;
     this.shake = 0;
     this.endTimer = 0;
     this.pathsDirty = false;
     this.loot = { sun: 0, water: 0 };
     this.army = {};
-    for (const k in UNITS) this.army[k] = this.opts.army ? (this.opts.army[k] || 0) : UNITS[k].army;
+    if (!this.defense) for (const k in UNITS) this.army[k] = this.opts.army ? (this.opts.army[k] || 0) : UNITS[k].army;
 
     const layout = this.opts.layout || LAYOUT;
-    for (const b of layout.buildings) this.addBuilding(b.type, b.x, b.y);
-    for (const [x, y] of layout.walls) this.addBuilding('wall', x, y);
+    for (const b of layout.buildings) this.addBuilding(b.type, b.x, b.y, b.level);
+    for (const [x, y, style] of layout.walls) this.addBuilding('wall', x, y, 1, style);
     for (const [x, y] of layout.traps) this.traps.push({ x: x + 0.5, y: y + 0.5, state: 'hidden', timer: 0 });
 
     this.totalCount = this.buildings.filter(b => b.counts).length;
@@ -50,13 +61,15 @@ export class Raid {
     this.stars = [false, false, false];
   }
 
-  addBuilding(type, x, y) {
+  addBuilding(type, x, y, level = 1, style) {
     const def = BUILDINGS[type];
+    const hpMult = this.defense ? DEFENSE.hpByLevel[level] : this.strength;
+    const dmgMult = this.defense ? DEFENSE.dmgByLevel[level] : this.strength;
     const b = {
-      id: nextId++, type, def, x, y, w: def.size, h: def.size,
+      id: nextId++, type, def, x, y, w: def.size, h: def.size, level, style, friendly: this.defense,
       cx: x + def.size / 2, cy: y + def.size / 2,
-      hp: def.hp * this.strength, maxHp: def.hp * this.strength, alive: true, counts: type !== 'wall',
-      dmg: (def.dmg || 0) * this.strength,
+      hp: def.hp * hpMult, maxHp: def.hp * hpMult, alive: true, counts: type !== 'wall',
+      dmg: (def.dmg || 0) * dmgMult,
       loot: def.loot ? { sun: Math.round(def.loot.sun * this.lootMult), water: Math.round(def.loot.water * this.lootMult) } : null,
       cool: rand(0, 0.5), target: null, aim: -Math.PI / 2, hitT: 0, fireT: 0,
     };
@@ -99,11 +112,11 @@ export class Raid {
   }
 
   spawnUnit(type, x, y) {
-    const d = UNITS[type];
+    const d = this.defs[type];
     const flavor = this.flavors[type] || null;
-    const hp = d.hp * (flavor === 'smoked' ? 1.35 : 1);
+    const hp = d.hp * (flavor === 'smoked' ? 1.35 : 1) * this.unitMult;
     this.units.push({
-      id: nextId++, type, d, x, y, hp, maxHp: hp, alive: true, flavor,
+      id: nextId++, type, d, x, y, hp, maxHp: hp, alive: true, flavor, dmg: d.dmg * this.unitMult, bug: this.defense,
       target: null, path: null, ignore: new Set(), cool: 0.3, slowT: 0, hitT: 0, age: 0, frenzy: false, hidden: false,
       face: 1, offx: rand(-0.18, 0.18), offy: rand(-0.18, 0.18), walk: rand(0, 6), atkAnim: 0,
     });
@@ -131,6 +144,11 @@ export class Raid {
       if (this.phase === 'battle') {
         this.time = Math.max(0, this.time - dt);
         this.heat = Math.min(HEAT.max, this.heat + HEAT.perSecond * dt);
+      }
+      while (this.phase === 'battle' && this.spawnPlan.length && this.spawnPlan[0].t <= this.clock) {
+        const s = this.spawnPlan.shift();
+        this.spawnUnit(s.type, s.x, s.y);
+        if (s.first) { this.floatText(s.x, Math.max(1, Math.min(19, s.y)), 'Bugs incoming!', '#ff5a4a'); sfx('click'); }
       }
       if (this.pathsDirty) {
         for (const u of this.units) u.path = null;
@@ -162,6 +180,17 @@ export class Raid {
   }
 
   checkEnd() {
+    if (this.defense) {
+      const coreDown = this.buildings.some(b => b.type === this.core && !b.alive);
+      const bugsDone = !this.spawnPlan.length && !this.units.length;
+      if (coreDown || bugsDone || this.time <= 0) {
+        this.phase = 'ending';
+        this.endTimer = 1.6;
+        this.won = !coreDown;
+        sfx(this.won ? 'win' : 'lose');
+      }
+      return;
+    }
     const unitsLeft = this.units.length + Object.values(this.army).reduce((a, b) => a + b, 0);
     if (this.destroyedCount >= this.totalCount || this.time <= 0 || unitsLeft === 0) {
       this.phase = 'ending';
@@ -212,14 +241,14 @@ export class Raid {
     }
 
     if (!u.path) {
-      u.path = findPath(this.grid, Math.floor(u.x), Math.floor(u.y), t, u.d.range, u.d.phase ? 0 : WALL_PATH_COST);
+      u.path = findPath(this.grid, Math.floor(u.x), Math.floor(u.y), t, u.d.range, (u.d.phase || u.d.fly) ? 0 : WALL_PATH_COST);
       if (u.path === null) { u.ignore.add(t.id); u.target = null; return; }
     }
     if (u.path.length === 0) { u.path = null; return; }
 
     const n = u.path[0];
     const occ = this.grid.get(n.x, n.y);
-    if (occ && occ.alive && occ.type === 'wall' && !u.d.phase) {
+    if (occ && occ.alive && occ.type === 'wall' && !u.d.phase && !u.d.fly) {
       if (distToRect(u.x, u.y, occ) <= Math.max(u.d.range, 0.55)) {
         this.unitAttack(u, occ, dt, slowed);
         return;
@@ -243,15 +272,15 @@ export class Raid {
     u.cool -= dt;
     if (u.cool > 0) return;
     u.cool = u.d.atkInterval * (slowed ? 1.6 : 1) * (u.flavor === 'saffron' ? 0.65 : 1) * (u.frenzy ? 0.6 : 1);
-    if (u.d.dmg <= 0) return;
+    if (u.dmg <= 0) return;
     u.atkAnim = 0.18;
     if (u.d.ranged) {
       const tx = b.type === 'wall' ? b.cx : b.cx + rand(-0.3, 0.3);
       const ty = b.type === 'wall' ? b.cy : b.cy + rand(-0.3, 0.3);
-      this.projectiles.push({ kind: 'seed', sx: u.x, sy: u.y - 0.3, tx, ty, t: 0, dur: 0.75, dmg: u.d.dmg, splash: u.d.splash, flavor: u.flavor });
+      this.projectiles.push({ kind: 'seed', sx: u.x, sy: u.y - 0.3, tx, ty, t: 0, dur: 0.75, dmg: u.dmg, splash: u.d.splash, flavor: u.flavor });
       sfx('lob');
     } else {
-      this.flavorHit(b, u.d.dmg, u.flavor);
+      this.flavorHit(b, u.dmg, u.flavor);
       for (let i = 0; i < 2; i++) this.particle(u.x + u.face * 0.25, u.y - 0.1, rand(-1.5, 1.5), rand(-2.5, -1), 0.3, '#c8a26a', 0.05);
       sfx('chomp');
     }
@@ -277,11 +306,14 @@ export class Raid {
       return;
     }
     if (u.flavor === 'smoked' && kind === 'spore') amt *= 0.5;
+    if (u.d.armor) amt *= 1 - u.d.armor;
     u.hp -= amt;
     u.hitT = 0.1;
     if (u.hp <= 0) {
       u.alive = false;
-      const col = { jalapeno: '#3fa34d', bell: '#e23b2e', habanero: '#ff8a1c', ghost: '#e8e2f5', reaper: '#8b0f0a' }[u.type];
+      if (u.bug) this.bugsKilled++;
+      const col = { jalapeno: '#3fa34d', bell: '#e23b2e', habanero: '#ff8a1c', ghost: '#e8e2f5', reaper: '#8b0f0a',
+        aphid: '#a8e05f', beetle: '#3a2a1a', wasp: '#ffd23f' }[u.type];
       for (let i = 0; i < 12; i++) this.particle(u.x, u.y - 0.2, rand(-3, 3), rand(-4, -0.5), rand(0.4, 0.8), col, rand(0.05, 0.12));
       for (let i = 0; i < 4; i++) this.particle(u.x, u.y - 0.2, rand(-2, 2), rand(-3, -1), 0.6, '#fff4c2', 0.05);
       sfx('squish');
@@ -324,6 +356,11 @@ export class Raid {
       return;
     }
     this.destroyedCount++;
+    if (this.defense) {
+      this.shake = Math.max(this.shake, b.type === this.core ? 0.6 : 0.2);
+      sfx('boom');
+      return;
+    }
     this.heat = Math.min(HEAT.max, this.heat + HEAT.perBuilding);
     this.floatText(b.cx, b.y, `+${HEAT.perBuilding} Heat`, '#ff7a1a');
     if (b.loot) {

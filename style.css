@@ -545,3 +545,54 @@ html, body {
 .arow .blurb { opacity: 0.6; font-size: 10.5px; }
 .alist { max-height: none; }
 .tchips { flex-wrap: wrap; max-width: 118px; justify-content: flex-end; }
+
+/* ---------- defending your garden ---------- */
+
+#dbar {
+  display: grid;
+  grid-template-columns: 1fr 1fr;
+  gap: 8px;
+  padding: 8px 8px 10px;
+  background: linear-gradient(var(--soil), #1f150e);
+  border-top: 3px solid #1a110b;
+}
+#app:not([data-mode="defense"]) #dbar,
+#app[data-mode="defense"] #cards,
+#app[data-mode="defense"] #heat,
+#app[data-mode="defense"] #stars,
+#app[data-mode="defense"] #banner { display: none !important; }
+#app[data-mode="defense"] #hud { grid-template-columns: 1fr auto 1fr; }
+
+#g-alert {
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  width: min(92%, 400px);
+  display: flex; flex-direction: column; align-items: center;
+  padding: 8px 12px;
+  border-radius: 14px;
+  border: 3px solid #1a110b;
+  background: linear-gradient(#ff6a4a, #c81e14);
+  color: #fff;
+  font-family: inherit;
+  box-shadow: 0 4px 0 #1a110b, 0 0 24px #ff3b2e88;
+  cursor: pointer;
+  z-index: 4;
+  animation: alertPulse 1.2s infinite;
+}
+#g-alert[hidden] { display: none; }
+#g-alert b { font: 18px 'Lilita One', sans-serif; text-shadow: 0 2px 0 #0005; }
+#g-alert small { font-size: 12px; font-weight: 900; opacity: 0.95; }
+@keyframes alertPulse { 50% { transform: translateX(-50%) scale(1.03); } }
+.big-emoji { font-size: 60px; display: inline-block; animation: pop 0.4s; }
+#res-loot .dig-loot { width: 100%; margin: 0; }
+#res-loot:has(.dig-loot) { display: block; }
+.bgroup { margin: 12px 0 0; font: 13px 'Lilita One', sans-serif; text-transform: uppercase; letter-spacing: 0.08em; color: #8a5a2b; }
+.tabs { display: flex; gap: 6px; margin: 10px 0 2px; }
+.tab {
+  flex: 1; padding: 8px 6px;
+  border-radius: 10px; border: 2px solid #1a110b;
+  background: #e6cf9c; color: #3a2614;
+  font: 15px 'Lilita One', sans-serif; cursor: pointer;
+}
+.tab.on { background: #3a2614; color: #ffd23f; }

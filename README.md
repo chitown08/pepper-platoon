@@ -14,6 +14,8 @@ A mobile-first web strategy game: grow a sentient pepper plant, then lead platoo
 
 **The Garden Map**: a backyard of nine Bug Hives (Sandbox, Garden Hose, Birdbath, Tool Shed, Patio, Barbecue, Doghouse, Koi Pond, Greenhouse Ruins), each with its own layout and level. Destroy a hive's Compost Bin to conquer it and lift the fog off the next one. Conquered hives can be re-raided for half loot.
 
+**Defend your garden**: plant Thorn Shooters, Sap Sprayers, hidden Spicy Spores and Bramble Hedges (drag to paint a row) from the Plant menu's Defenses tab. After your first conquest, bug swarms (Aphids, armored Stag Beetles, flying Wasps) attack every few hours, growing with the hives you've conquered. Watch the battle play out on your own garden: hold the Stem for a Sunlight and Spice Seed bounty; lose it and they carry off a quarter of your Sunlight and Water, and your garden is Wilted (safe) for 6 hours. `node tools/defense.js` simulates attacks on sample gardens.
+
 **Root Roulette**: once a day, Dig under your plant (💧100). Tap root pieces to rotate them and connect the taproot to nutrient pockets before the 60-second Sap Pressure bursts: Aquifers (Water), Seed Geodes (Spice Seeds), a Fertilizer Geyser (Photosynthesis Overdrive: double Sunlight for 4 hours), and on the bottom row an Ancient Ingredient that unlocks the rare **Truffle** (bonus loot) or **Saffron** (faster attacks) flavor. Glowing fungus tiles in your root network multiply rewards; tap Burrowing Grubs before they scramble your roots. Every puzzle is generated to be solvable.
 
 **Sauce Raids**: attack a Bug Hive with the troops you've grown.
@@ -50,6 +52,7 @@ Then open http://localhost:8000.
 | `js/map.js` | The Garden Map screen |
 | `js/roulette.js` | Root Roulette: puzzle generator, flow logic and screen |
 | `tools/sim.js` | Headless raid balance tester. Run `npm run sim` (needs Node.js). |
+| `tools/defense.js` | Simulates bug swarms against sample gardens |
 | `tools/progression.js` | Simulates every map hive against a typical army for that stage |
 
 ## Design decisions so far

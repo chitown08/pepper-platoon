@@ -69,6 +69,7 @@
         <b>Scouting the Bug Hive</b>
         <span>Tap buildings to inspect · Tap the picnic blanket to deploy and start the raid</span>
       </div>
+      <button id="g-alert" class="garden-only" hidden><b>🐛 Bug swarm at the gate!</b><small></small></button>
       <div id="sheet" class="home-ui hidden"></div>
       <div id="tip"></div>
     </main>
@@ -84,6 +85,10 @@
       <div class="mstat"><b id="m-progress">0 / 9 hives conquered</b><small id="m-army">0 troops ready</small></div>
     </footer>
     <footer id="cards" class="raid-only"></footer>
+    <footer id="dbar" class="raid-only">
+      <div class="mstat"><b id="d-left">0 bugs left</b><small id="d-killed">0 squashed</small></div>
+      <button id="d-speed" class="gbtn"><b>Speed ×1</b><small>Your defenses fight on their own</small></button>
+    </footer>
     <footer id="rbar" class="roulette-only">
       <p>Tap roots to turn them. Connect the taproot to pockets. Squish grubs before they scramble you!</p>
       <button id="dig-cash" class="gbtn"><b>Cash Out</b><small>Keep what you've tapped</small></button>
@@ -121,6 +126,7 @@
           <li><b>Blossoms</b> house your platoon. Tap <b>Platoon</b> to grow troops.</li>
           <li>Grow your <b>Stem</b> for a bigger plot, more storage and more buildings.</li>
           <li>Plant a <b>Flavor Lab</b> and spend 🌱 Spice Seeds (earned from raid stars) on flavors that power up your troops.</li>
+          <li>Plant <b>Defenses</b> (Thorn Shooters, Sap Sprayers, Spicy Spores and Bramble Hedges). Once you start conquering hives, bug swarms will come for your Stem!</li>
           <li>Once a day, <b>Dig</b> into <b>Root Roulette</b>: turn root pieces to tap underground pockets of Water, Spice Seeds, sunlight boosts and rare flavors.</li>
           <li>Hit <b>Raid!</b> to open the <b>Garden Map</b>. Destroy a hive's Compost Bin to conquer it and lift the fog off the next one.</li>
         </ul>

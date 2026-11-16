@@ -35,7 +35,7 @@ for (const b of document.querySelectorAll('.mute')) {
 
 // ---------- scenes ----------
 
-const garden = createGarden({ canvas, player, showTip, onRaid: () => go('map'), onDig: () => {
+const garden = createGarden({ canvas, player, showTip, onRaid: () => go('map'), onDefend: () => go('raid', 'defense'), onDig: () => {
   if (S.startDig(player)) return;
   S.save(player);
   go('roulette');
@@ -48,6 +48,11 @@ const raid = createRaidScene({
   canvas,
   showTip,
   onFinish(result) {
+    if (result.mode === 'defense') {
+      const lines = S.recordDefense(player, result.won);
+      S.save(player);
+      return lines;
+    }
     player.army = result.armyLeft;
     player.raids++;
     const banked = S.addLoot(player, result.loot, result.seeds);
@@ -65,7 +70,10 @@ function go(name, arg) {
   scene.exit();
   app.dataset.scene = name;
   scene = { raid, garden, map, roulette }[name];
-  if (name === 'raid') {
+  if (name === 'raid' && arg === 'defense') {
+    const sw = S.swarmPlan(player);
+    raid.enter({ mode: 'defense', layout: S.defenseLayout(player), spawnPlan: sw.plan, bugStrength: sw.strength, area: S.buildArea(player) });
+  } else if (name === 'raid') {
     raidNode = arg;
     raid.enter({
       army: { ...player.army }, flavors: { ...player.flavors.infused },
@@ -78,7 +86,7 @@ function go(name, arg) {
   showHelp(name, false);
 }
 
-$('#back-garden').addEventListener('click', () => go('map'));
+$('#back-garden').addEventListener('click', () => go(raid.mode === 'defense' ? 'garden' : 'map'));
 
 // ---------- help ----------
 

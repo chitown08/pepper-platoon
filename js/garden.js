@@ -1,15 +1,16 @@
 // The Garden scene: your Pepper Plant home base.
 
-import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS, FLAVORS, INFUSE_COST, DIG } from './config.js';
+import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS, FLAVORS, INFUSE_COST, DIG, BUILDINGS, DEFENSE, TRAP } from './config.js';
 import * as S from './state.js';
 import { drawStem, PLANT_ART, drawBubble, drawPlantIcon } from './garden-art.js';
-import { drawUnitIcon } from './render.js';
+import { drawUnitIcon, drawTurret, drawHedge } from './render.js';
 import { sfx } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
 const { cols: COLS, rows: ROWS } = GARDEN;
 const RES_ICON = { sun: '☀️', water: '💧' };
 const MAP_COUNT = 9;
+const PLANT_UNLOCK = (type) => STEM_LEVELS.findIndex(l => l && l.limits[type] > 0);
 const TROOP_BLURB = {
   jalapeno: 'Cheap swarm. Rushes the nearest building.',
   habanero: 'Lobs explosive seeds over walls. Fragile.',
@@ -19,9 +20,18 @@ const TROOP_BLURB = {
 };
 
 function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
+
+function drawSporePatch(c, x, y, level, t, bounce = 0) {
+  const cx = x + 0.5, cy = y + 0.55, k = 1 + bounce * 0.3 + Math.sin(t * 2 + x) * 0.03;
+  c.beginPath(); c.ellipse(cx, cy + 0.12, 0.38, 0.16, 0, 0, Math.PI * 2); c.fillStyle = '#4a2f17'; c.fill();
+  for (const [dx, dy, r, col] of [[-0.15, 0.02, 0.15, '#ff8a1c'], [0.14, 0.04, 0.13, '#e8452c'], [0, -0.1, 0.17, '#ffb02e']]) {
+    c.beginPath(); c.ellipse(cx + dx, cy + dy, r * k, r * 0.9 * k, 0, 0, Math.PI * 2); c.fillStyle = col; c.fill();
+    c.beginPath(); c.ellipse(cx + dx - r * 0.3, cy + dy - r * 0.3, r * 0.3, r * 0.2, 0, 0, Math.PI * 2); c.fillStyle = 'rgba(255,255,255,0.4)'; c.fill();
+  }
+}
 const fmt = (n) => Math.floor(n).toLocaleString();
 
-export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
+export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip }) {
   const c = canvas.getContext('2d');
   const view = { tile: 20, dpr: 1, S: 20 };
   const bg = document.createElement('canvas');
@@ -103,6 +113,14 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
   // ---------- drawing ----------
 
   function sizeOf(q) { return q === 'stem' ? 3 : PLANTS[q.type].size; }
+
+  const isHedgeAt = (x, y) => p.plants.some(q => q.type === 'hedge' && q.x === x && q.y === y);
+  function art(type) {
+    if (type === 'thorn' || type === 'sap') return (c2, x, y, level, t) => drawTurret(c2, type, x, y, level, t, -Math.PI / 2 + Math.sin(t * 0.7 + x) * 0.8, x * 31 + y);
+    if (type === 'hedge') return (c2, x, y) => drawHedge(c2, x, y, x * 17 + y * 3, isHedgeAt);
+    if (type === 'spore') return drawSporePatch;
+    return PLANT_ART[type];
+  }
   function posOf(q) { return q === 'stem' ? p.stem : q; }
 
   function bounceOf(id) {
@@ -138,14 +156,15 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
     const now = Date.now();
     const stemC = { x: p.stem.x + 1.5, y: p.stem.y + 2.2 };
 
-    // vines from the stem to every plant
+    // vines from the stem to every plant (not to hedges & traps)
     for (const q of p.plants) {
       if (place && place.kind === 'move' && place.target === q) continue;
+      if (PLANTS[q.type].size < 2) continue;
       drawVine(stemC.x, stemC.y, q.x + 1, q.y + 1.4, q.id);
     }
 
     // placement footprint
-    if (place) {
+    if (place && place.kind !== 'paint') {
       const ok = S.fits(p, place.x, place.y, place.size, place.kind === 'move' ? (place.target === 'stem' ? 'stem' : place.target.id) : undefined);
       c.fillStyle = ok ? 'rgba(120,255,120,0.35)' : 'rgba(255,70,50,0.4)';
       c.strokeStyle = ok ? '#b8ffb0' : '#ff8a7a';
@@ -154,7 +173,9 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
     }
 
     // depth-sorted plants
-    const items = [{ q: 'stem', y: p.stem.y + 3 }, ...p.plants.map(q => ({ q, y: q.y + PLANTS[q.type].size }))];
+    // hedges & spores lie flat, so they're drawn first
+    const flat = (q) => q !== 'stem' && PLANTS[q.type].size === 1;
+    const items = [{ q: 'stem', y: p.stem.y + 3 }, ...p.plants.map(q => ({ q, y: q.y + PLANTS[q.type].size - (flat(q) ? 100 : 0) }))];
     items.sort((m, n) => m.y - n.y);
     for (const { q } of items) {
       const moving = place && place.kind === 'move' && place.target === q;
@@ -166,14 +187,14 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
         c.beginPath(); c.roundRect(pos.x + 0.05, pos.y + 0.05, s - 0.1, s - 0.1, 0.25); c.stroke(); c.setLineDash([]);
       }
       if (q === 'stem') drawStem(c, pos.x, pos.y, p.stem.level, clock, bounceOf('stem'));
-      else PLANT_ART[q.type](c, pos.x, pos.y, q.level, clock, bounceOf(q.id), q.type === 'blossom' ? troopsShown(q) : 0);
+      else art(q.type)(c, pos.x, pos.y, q.level, clock, bounceOf(q.id), q.type === 'blossom' ? troopsShown(q) : 0);
       c.globalAlpha = 1;
     }
 
     // ghost for a new building
     if (place && place.kind === 'build') {
       c.globalAlpha = 0.8;
-      PLANT_ART[place.type](c, place.x, place.y, 1, clock, 0, 0);
+      art(place.type)(c, place.x, place.y, 1, clock, 0, 0);
       c.globalAlpha = 1;
     }
 
@@ -200,6 +221,7 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
     c.textAlign = 'center'; c.textBaseline = 'middle';
     c.font = `${badge}px 'Lilita One', system-ui, sans-serif`;
     for (const { q } of items) {
+      if (flat(q)) continue;
       const pos = posOf(q), s = sizeOf(q);
       const lvl = q === 'stem' ? p.stem.level : q.level;
       const bx = (pos.x + s - 0.25) * view.S, by = (pos.y + s - 0.25) * view.S;
@@ -256,6 +278,9 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
     sunBar.style.width = Math.min(100, p.sun / cp.sun * 100) + '%';
     waterBar.style.width = Math.min(100, p.water / cp.water * 100) + '%';
     raidSub.textContent = `Map · ${S.conqueredCount(p)}/${MAP_COUNT}`;
+    const due = S.attackDue(p);
+    alertEl.hidden = !due;
+    if (due) $('#g-alert small').textContent = `${S.swarmSummary(p)}. Tap to defend!`;
     $('#g-dig-sub').innerHTML = S.digReady(p) ? `💧 ${DIG.fee}<span class="dot"></span>` : 'Tomorrow';
     const boost = S.sunBoost(p);
     let bEl = $('#g-boost');
@@ -314,6 +339,20 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
         <div><span>Makes</span><b>${d.rate[L]} ${icon}/min</b>${has(d.rate) ? `<i>→ ${d.rate[N]}</i>` : ''}</div>
         <div><span>Holds</span><b>${fmt(d.store[L])}</b>${has(d.store) ? `<i>→ ${fmt(d.store[N])}</i>` : ''}</div>
         <div><span>Ready</span><b id="sh-ready">${fmt(S.stored(q))}</b></div>`;
+    } else if (q.type === 'thorn' || q.type === 'sap') {
+      const B = BUILDINGS[q.type];
+      const nx = d.cost[N] != null;
+      const dps = (lv) => Math.round(B.dmg * DEFENSE.dmgByLevel[lv] / B.interval);
+      stats = `
+        <div><span>Damage/s</span><b>${dps(L)}</b>${nx ? `<i>→ ${dps(N)}</i>` : ''}</div>
+        <div><span>Health</span><b>${fmt(B.hp * DEFENSE.hpByLevel[L])}</b>${nx ? `<i>→ ${fmt(B.hp * DEFENSE.hpByLevel[N])}</i>` : ''}</div>
+        <div><span>Range</span><b>${B.range} tiles</b></div>`;
+    } else if (q.type === 'spore') {
+      stats = `<div><span>Blast</span><b>${TRAP.dmg} damage</b></div><div><span>Radius</span><b>${TRAP.radius} tiles</b></div><div><span>Seen by</span><b>Only you</b></div>`;
+    } else if (q.type === 'hedge') {
+      stats = `<div><span>Health</span><b>${fmt(BUILDINGS.wall.hp)}</b></div><div class="wide"><span>Tip</span><b>Bugs chew through hedges. Wasps fly over them.</b></div>`;
+    } else if (q.type === 'lab') {
+      stats = '';
     } else {
       stats = `<div><span>Houses</span><b>${d.housing[L]} troops</b>${has(d.housing) ? `<i>→ ${d.housing[N]}</i>` : ''}</div>`;
     }
@@ -326,6 +365,7 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
         ${btn('sh-up', cost != null ? 'Upgrade' : 'Max level', cost != null ? `☀️ ${fmt(cost)}` : '', 'primary')}
         ${d.makes ? btn('sh-collect', 'Collect', '') : ''}
         ${btn('sh-move', 'Move', '')}
+        ${d.size === 1 ? btn('sh-dig-up', 'Remove', '') : ''}
       </div>
       <p class="sh-note" id="sh-note"></p>`;
   }
@@ -343,6 +383,8 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
       openInfo(q);
     };
     $('#sh-move').onclick = () => startMove(q);
+    const rm = $('#sh-dig-up');
+    if (rm) rm.onclick = () => { p.plants.splice(p.plants.indexOf(q), 1); sfx('crunch'); save(); selected = null; closeSheet(); };
     const col = $('#sh-collect');
     if (col) col.onclick = () => { collect(q); openInfo(q); };
     refreshInfoButtons();
@@ -412,27 +454,44 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
   }
 
   // ----- build sheet -----
-  function openBuild() {
+  let buildTab = 'garden';
+  function openBuild(tab) {
     selected = null;
-    const rows = Object.entries(PLANTS).map(([type, d]) => {
+    if (tab) buildTab = tab;
+    const row = ([type, d]) => {
       const n = S.countOf(p, type), lim = S.limitOf(p, type);
       const err = S.canBuild(p, type);
       return `<button class="brow ${err ? 'disabled' : ''}" data-type="${type}">
         <canvas width="96" height="96"></canvas>
         <span class="bmain"><b>${d.name}</b><small>${d.blurb}</small></span>
-        <span class="bside"><b>☀️ ${fmt(d.cost[1])}</b><small>${n} / ${lim}</small></span>
+        <span class="bside"><b>☀️ ${fmt(d.cost[1])}</b><small>${lim ? `${n} / ${lim}` : `Stem Lv ${PLANT_UNLOCK(type)}`}</small></span>
       </button>`;
-    }).join('');
-    openSheet('build', `<div class="sh-head"><h3>Plant something</h3><button class="x" data-close>✕</button></div><div class="blist">${rows}</div>`);
+    };
+    const all = Object.entries(PLANTS);
+    const def = buildTab === 'defense';
+    openSheet('build', `<div class="sh-head"><h3>Plant something</h3><button class="x" data-close>✕</button></div>
+      <div class="tabs"><button class="tab ${def ? '' : 'on'}" data-tab="garden">🌿 Garden</button><button class="tab ${def ? 'on' : ''}" data-tab="defense">🛡️ Defenses</button></div>
+      <div class="blist">${all.filter(([, d]) => !!d.defense === def).map(row).join('')}</div>`);
     wireSheetCommon();
+    for (const t of sheetEl.querySelectorAll('.tab')) t.onclick = () => { sfx('click'); openBuild(t.dataset.tab); };
     for (const el of sheetEl.querySelectorAll('.brow')) {
-      drawPlantIcon(el.querySelector('canvas'), el.dataset.type);
+      plantIcon(el.querySelector('canvas'), el.dataset.type);
       el.onclick = () => {
         const err = S.canBuild(p, el.dataset.type);
         if (err) { sfx('deny'); showTip(err); return; }
         startBuild(el.dataset.type);
       };
     }
+  }
+
+  function plantIcon(cv, type) {
+    if (!['thorn', 'sap', 'hedge', 'spore'].includes(type)) { drawPlantIcon(cv, type); return; }
+    const c2 = cv.getContext('2d'), s = cv.width;
+    c2.clearRect(0, 0, s, s);
+    c2.save();
+    if (type === 'thorn' || type === 'sap') { c2.scale(s / 2.4, s / 2.4); c2.translate(0.2, 0.45); drawTurret(c2, type, 0, 0, 1, 0); }
+    else { c2.scale(s / 1.2, s / 1.2); c2.translate(0.1, 0.05); art(type)(c2, 0, 0, 1, 0, 0); }
+    c2.restore();
   }
 
   // ----- army sheet -----
@@ -479,6 +538,16 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
 
   // ----- placement -----
   function startBuild(type) {
+    if (type === 'hedge') {
+      place = { kind: 'paint', type, size: 1, x: -10, y: -10 };
+      openSheet('place', `
+        <div class="sh-head"><h3>Plant Bramble Hedges</h3></div>
+        <p class="sh-blurb">Tap or drag across the soil to plant hedges (☀️ ${PLANTS.hedge.cost[1]} each). <b id="pl-count"></b></p>
+        <div class="row">${btn('pl-cancel', 'Done', '', 'primary')}</div>`);
+      $('#pl-cancel').onclick = () => { place = null; closeSheet(); };
+      updatePaintCount();
+      return;
+    }
     const size = PLANTS[type].size;
     const spot = S.findSpot(p, size);
     place = { kind: 'build', type, size, x: spot.x, y: spot.y };
@@ -538,8 +607,24 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
     return null;
   }
 
+  function updatePaintCount() {
+    const el = $('#pl-count');
+    if (el) el.textContent = `${S.countOf(p, 'hedge')} / ${S.limitOf(p, 'hedge')} planted`;
+  }
+  function paintHedge(w) {
+    const x = Math.floor(w.x), y = Math.floor(w.y);
+    if (place.x === x && place.y === y) return;
+    place.x = x; place.y = y;
+    if (!S.fits(p, x, y, 1)) return;
+    const err = S.canBuild(p, 'hedge');
+    if (err) { if (!place.warned) { sfx('deny'); showTip(err); place.warned = true; } return; }
+    S.build(p, 'hedge', x, y);
+    sfx('pop'); save(); updatePaintCount();
+  }
+
   let dragging = false;
   function movePlacement(w) {
+    if (place.kind === 'paint') { paintHedge(w); return; }
     place.x = Math.floor(w.x - place.size / 2 + 0.5);
     place.y = Math.floor(w.y - place.size / 2 + 0.5);
     place.x = Math.max(0, Math.min(COLS - place.size, place.x));
@@ -562,13 +647,18 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
 
   // ---------- bottom bar ----------
 
-  $('#g-build').onclick = () => { place = null; toggle('build', openBuild, '#g-build'); };
+  $('#g-build').onclick = () => { place = null; toggle('build', () => openBuild(S.attackDue(p) ? 'defense' : undefined), '#g-build'); };
   $('#g-army').onclick = () => { place = null; toggle('army', openArmy, '#g-army'); };
   $('#g-dig').onclick = () => {
     const err = S.canDig(p);
     if (err) { sfx('deny'); showTip(err); return; }
     place = null; selected = null; closeSheet();
     onDig();
+  };
+  const alertEl = $('#g-alert');
+  alertEl.onclick = () => {
+    place = null; selected = null; closeSheet();
+    onDefend();
   };
   $('#g-raid').onclick = () => {
     place = null; selected = null; closeSheet();

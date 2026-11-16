@@ -1,6 +1,6 @@
 // Player progress: garden layout, resources, army. Saved to this device's browser storage.
 
-import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST, MAP_NODES, LAYOUTS, BUILDINGS, HIVE, REPEAT_LOOT, parseLayout, DIG } from './config.js';
+import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST, MAP_NODES, LAYOUTS, BUILDINGS, HIVE, REPEAT_LOOT, parseLayout, DIG, DEFENSE, BUGS, ROWS as RAID_ROWS, COLS as RAID_COLS } from './config.js';
 
 const SAVE_KEY = 'pepper-platoon-save-v2';
 let nextId = 1;
@@ -25,6 +25,7 @@ export function newPlayer() {
     map: { conquered: [], best: {} },
     roulette: { lastDay: null },
     boosts: {},
+    defense: { next: null, shieldUntil: 0, wins: 0, losses: 0 },
   };
 }
 
@@ -45,6 +46,8 @@ function loadRaw() {
       if (p && p.version === 1) {
         p.flavors = p.flavors || { unlocked: [], infused: {} };
         p.roulette = p.roulette || { lastDay: null };
+        p.defense = p.defense || { next: null, shieldUntil: 0, wins: 0, losses: 0 };
+        if (p.defense.next == null && p.map && p.map.conquered.length) p.defense.next = Date.now();
         p.boosts = p.boosts || {};
         if (!p.map) {
           // older saves tracked a single hive level
@@ -297,6 +300,8 @@ export function recordRaid(p, i, stars) {
   p.map.best[i] = Math.max(p.map.best[i] || 0, n);
   if (stars[1] && !p.map.conquered.includes(i)) {
     p.map.conquered.push(i);
+    // the bugs strike back after your first conquest
+    if (p.defense.next == null) p.defense.next = Date.now();
     if (i + 1 < MAP_NODES.length) return i + 1;
   }
   return null;
@@ -356,6 +361,83 @@ export function payDig(p, rewards) {
         lines.push({ icon: '🌱', text: `4 Spice Seeds (you already had ${FLAVORS[r.flavor].name})` });
       }
     }
+  }
+  return lines;
+}
+
+// ---------- Bug counter-attacks ----------
+
+export const threatLevel = (p) => 1 + p.map.conquered.length;
+
+export function attackDue(p, now = Date.now()) {
+  return p.defense.next != null && now >= p.defense.next && now >= p.defense.shieldUntil;
+}
+
+// Your garden as a battlefield for the raid engine.
+export function defenseLayout(p) {
+  const out = { buildings: [{ type: 'stem', x: p.stem.x, y: p.stem.y, level: p.stem.level }], walls: [], traps: [] };
+  for (const q of p.plants) {
+    if (q.type === 'hedge') out.walls.push([q.x, q.y, 'hedge']);
+    else if (q.type === 'spore') out.traps.push([q.x, q.y]);
+    else out.buildings.push({ type: q.type, x: q.x, y: q.y, level: q.level || 1 });
+  }
+  return out;
+}
+
+// When and where each bug turns up: waves from the top and bottom edges, outside your plot.
+export function swarmPlan(p) {
+  const w = threatLevel(p);
+  const counts = DEFENSE.swarm(w);
+  const bugs = [];
+  for (const [type, n] of Object.entries(counts)) for (let i = 0; i < n; i++) bugs.push(type);
+  bugs.sort(() => Math.random() - 0.5);
+  const waves = DEFENSE.waves.length;
+  const plan = [];
+  bugs.forEach((type, i) => {
+    const wave = i % waves;
+    const top = (wave + (w % 2)) % 2 === 0;
+    const cx = 2 + ((wave * 5 + 3) % 11);
+    plan.push({
+      t: DEFENSE.waves[wave] + Math.random() * 2.5,
+      type,
+      x: Math.max(0.5, Math.min(RAID_COLS - 0.5, cx + (Math.random() - 0.5) * 4)),
+      y: top ? 0.4 + Math.random() * 0.8 : RAID_ROWS - 0.6 - Math.random() * 1.2,
+    });
+  });
+  plan.sort((a, b) => a.t - b.t);
+  const firstOfWave = new Set();
+  for (const s of plan) { const k = DEFENSE.waves.findIndex(t => s.t < t + 2.5); if (!firstOfWave.has(k)) { firstOfWave.add(k); s.first = true; } }
+  return { plan, strength: DEFENSE.bugStrength(w), level: w };
+}
+
+export function swarmSummary(p) {
+  const c = DEFENSE.swarm(threatLevel(p));
+  return Object.entries(c).filter(([, n]) => n).map(([k, n]) => `${n} ${BUGS[k].name}${n > 1 ? 's' : ''}`).join(', ');
+}
+
+// Applies the outcome. Returns { lines, note } for the results screen.
+export function recordDefense(p, won) {
+  const now = Date.now();
+  const w = threatLevel(p);
+  const hours = (a, b) => (a + Math.random() * (b - a)) * 3600000;
+  const lines = [];
+  if (won) {
+    const b = DEFENSE.bounty(w);
+    const room = Math.max(0, cap(p).sun - p.sun);
+    const sun = Math.min(b.sun, room);
+    p.sun += sun; p.seeds += b.seeds;
+    p.defense.wins++;
+    p.defense.next = now + hours(...DEFENSE.nextHours);
+    lines.push({ icon: '☀️', text: `${sun.toLocaleString()} Sunlight bounty` }, { icon: '🌱', text: `${b.seeds} Spice Seed` });
+  } else {
+    const sun = Math.floor(p.sun * DEFENSE.lossShare), water = Math.floor(p.water * DEFENSE.lossShare);
+    p.sun -= sun; p.water -= water;
+    for (const q of p.plants) if (PLANTS[q.type].makes) q.since = now; // unharvested stores are eaten
+    p.defense.losses++;
+    p.defense.shieldUntil = now + DEFENSE.shieldHours * 3600000;
+    p.defense.next = p.defense.shieldUntil + hours(1, 2);
+    lines.push({ icon: '☀️', text: `−${sun.toLocaleString()} Sunlight stolen` }, { icon: '💧', text: `−${water.toLocaleString()} Water stolen` },
+      { icon: '🥀', text: `Wilted: no attacks for ${DEFENSE.shieldHours} hours` });
   }
   return lines;
 }
