@@ -205,7 +205,44 @@ export function drawBlossom(c, x, y, level, t, bounce = 0, troops = 0) {
   }
 }
 
-export const PLANT_ART = { leaf: drawLeaf, root: drawRoot, blossom: drawBlossom };
+// ---------- Flavor Lab: a bubbling clay pot and a flask ----------
+export function drawLab(c, x, y, level, t, bounce = 0) {
+  const cx = x + 0.9, cy = y + 1.15;
+  ellipse(c, x + 1, cy + 0.6, 0.95, 0.3, 'rgba(0,0,0,0.22)');
+  // flask behind
+  const fx = x + 1.6, fy = y + 0.85;
+  c.fillStyle = 'rgba(220,240,255,0.55)';
+  c.beginPath(); c.moveTo(fx - 0.06, fy - 0.55); c.lineTo(fx + 0.06, fy - 0.55); c.lineTo(fx + 0.06, fy - 0.25);
+  c.lineTo(fx + 0.25, fy + 0.25); c.quadraticCurveTo(fx, fy + 0.4, fx - 0.25, fy + 0.25); c.lineTo(fx - 0.06, fy - 0.25); c.closePath(); c.fill();
+  c.strokeStyle = 'rgba(80,110,140,0.8)'; c.lineWidth = 0.03; c.stroke();
+  const hue = (t * 40) % 360;
+  c.fillStyle = `hsl(${hue},85%,55%)`;
+  c.beginPath(); c.moveTo(fx - 0.17, fy + 0.1); c.lineTo(fx + 0.17, fy + 0.1); c.lineTo(fx + 0.25, fy + 0.25);
+  c.quadraticCurveTo(fx, fy + 0.4, fx - 0.25, fy + 0.25); c.closePath(); c.fill();
+  // pot
+  c.save(); c.translate(cx, cy); c.scale(1 + bounce * 0.15, 1 - bounce * 0.1);
+  const g = c.createLinearGradient(-0.7, 0, 0.7, 0);
+  g.addColorStop(0, '#9c4a22'); g.addColorStop(0.5, '#d9773e'); g.addColorStop(1, '#8a3f1c');
+  c.beginPath(); c.moveTo(-0.62, -0.25); c.quadraticCurveTo(-0.75, 0.45, 0, 0.55); c.quadraticCurveTo(0.75, 0.45, 0.62, -0.25); c.closePath();
+  c.fillStyle = g; c.fill(); c.strokeStyle = '#5e2a10'; c.lineWidth = 0.04; c.stroke();
+  ellipse(c, 0, -0.25, 0.7, 0.2, '#7a3516');
+  // brew
+  ellipse(c, 0, -0.24, 0.58, 0.14, '#e8452c');
+  ellipse(c, -0.15, -0.27, 0.2, 0.05, '#ff8a5a');
+  // pepper stripe on pot
+  c.fillStyle = '#3fa34d';
+  c.beginPath(); c.ellipse(0, 0.15, 0.12, 0.2, 0.3, 0, Math.PI * 2); c.fill();
+  c.restore();
+  // bubbles & steam
+  for (let i = 0; i < 4; i++) {
+    const k = (t * 0.7 + i * 0.25) % 1;
+    c.globalAlpha = 1 - k;
+    ellipse(c, cx - 0.3 + i * 0.2 + Math.sin(t * 3 + i) * 0.05, cy - 0.3 - k * 0.9, 0.06 + k * 0.1, 0.06 + k * 0.1, i % 2 ? '#ffd0c0' : '#ffffff');
+  }
+  c.globalAlpha = 1;
+}
+
+export const PLANT_ART = { leaf: drawLeaf, root: drawRoot, blossom: drawBlossom, lab: drawLab };
 
 // ---------- bubbles & badges ----------
 

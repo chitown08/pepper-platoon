@@ -1,6 +1,6 @@
 // Player progress: garden layout, resources, army. Saved to this device's browser storage.
 
-import { GARDEN, STEM_LEVELS, PLANTS, TROOPS } from './config.js';
+import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST } from './config.js';
 
 const SAVE_KEY = 'pepper-platoon-save-v2';
 let nextId = 1;
@@ -22,6 +22,7 @@ export function newPlayer() {
     ],
     raids: 0,
     seenHelp: false,
+    flavors: { unlocked: [], infused: {} },
   };
 }
 
@@ -31,6 +32,7 @@ export function load() {
     if (raw) {
       const p = JSON.parse(raw);
       if (p && p.version === 1) {
+        p.flavors = p.flavors || { unlocked: [], infused: {} };
         nextId = Math.max(nextId, ...p.plants.map(q => q.id + 1));
         return p;
       }
@@ -201,4 +203,32 @@ export function addLoot(p, loot, seeds) {
   p.water += water;
   p.seeds += seeds;
   return { sun, water, lostSun: loot.sun - sun, lostWater: loot.water - water };
+}
+
+// ---------- Flavor Lab ----------
+
+export const hasLab = (p) => p.plants.some(q => q.type === 'lab');
+
+export function canUnlockFlavor(p, f) {
+  if (p.flavors.unlocked.includes(f)) return 'Already unlocked';
+  if (p.seeds < FLAVORS[f].seeds) return 'Not enough Spice Seeds. Earn them with raid stars';
+  return null;
+}
+
+export function unlockFlavor(p, f) {
+  const err = canUnlockFlavor(p, f);
+  if (err) return err;
+  p.seeds -= FLAVORS[f].seeds;
+  p.flavors.unlocked.push(f);
+  return null;
+}
+
+// Infuse a troop type with a flavor, or pass the flavor it already has to remove it.
+export function infuse(p, troop, f) {
+  if (p.flavors.infused[troop] === f) { delete p.flavors.infused[troop]; return null; }
+  if (!p.flavors.unlocked.includes(f)) return 'Unlock this flavor first';
+  if (p.water < INFUSE_COST) return 'Not enough Water';
+  p.water -= INFUSE_COST;
+  p.flavors.infused[troop] = f;
+  return null;
 }

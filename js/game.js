@@ -1,7 +1,7 @@
 // Raid simulation: units, defenses, projectiles, traps, Heat and scoring.
 
 import {
-  COLS, ROWS, DEPLOY_ROWS, RAID_TIME, UNITS, BUILDINGS, TRAP, HEAT, SPELL, LAYOUT, WALL_PATH_COST, HIVE,
+  COLS, ROWS, DEPLOY_ROWS, RAID_TIME, UNITS, BUILDINGS, TRAP, HEAT, SPELL, LAYOUT, WALL_PATH_COST, HIVE, FLAVORS,
 } from './config.js';
 import { Grid, distToRect, findPath } from './grid.js';
 import { sfx } from './audio.js';
@@ -12,12 +12,14 @@ let nextId = 1;
 export class Raid {
   // opts.army: { jalapeno: n, ... } (defaults to the test army)
   // opts.level: Bug Hive level (0 = full-strength test hive)
+  // opts.flavors: { jalapeno: 'garlic', ... } infusions from the Flavor Lab
   constructor(opts = {}) { this.opts = opts; this.reset(); }
 
   reset() {
     this.level = this.opts.level || 0;
     this.strength = HIVE.strength(this.level);
     this.lootMult = HIVE.loot(this.level);
+    this.flavors = this.opts.flavors || {};
     this.grid = new Grid(COLS, ROWS);
     this.buildings = [];
     this.traps = [];
@@ -96,8 +98,10 @@ export class Raid {
 
   spawnUnit(type, x, y) {
     const d = UNITS[type];
+    const flavor = this.flavors[type] || null;
+    const hp = d.hp * (flavor === 'smoked' ? 1.35 : 1);
     this.units.push({
-      id: nextId++, type, d, x, y, hp: d.hp, maxHp: d.hp, alive: true,
+      id: nextId++, type, d, x, y, hp, maxHp: hp, alive: true, flavor,
       target: null, path: null, ignore: new Set(), cool: 0.3, slowT: 0, hitT: 0,
       face: 1, offx: rand(-0.18, 0.18), offy: rand(-0.18, 0.18), walk: rand(0, 6), atkAnim: 0,
     });
@@ -235,17 +239,34 @@ export class Raid {
     if (u.d.ranged) {
       const tx = b.type === 'wall' ? b.cx : b.cx + rand(-0.3, 0.3);
       const ty = b.type === 'wall' ? b.cy : b.cy + rand(-0.3, 0.3);
-      this.projectiles.push({ kind: 'seed', sx: u.x, sy: u.y - 0.3, tx, ty, t: 0, dur: 0.75, dmg: u.d.dmg, splash: u.d.splash });
+      this.projectiles.push({ kind: 'seed', sx: u.x, sy: u.y - 0.3, tx, ty, t: 0, dur: 0.75, dmg: u.d.dmg, splash: u.d.splash, flavor: u.flavor });
       sfx('lob');
     } else {
-      this.damageBuilding(b, u.d.dmg);
+      this.flavorHit(b, u.d.dmg, u.flavor);
       for (let i = 0; i < 2; i++) this.particle(u.x + u.face * 0.25, u.y - 0.1, rand(-1.5, 1.5), rand(-2.5, -1), 0.3, '#c8a26a', 0.05);
       sfx('chomp');
     }
   }
 
-  damageUnit(u, amt) {
+  // A troop's hit on a building, with its flavor's effect.
+  flavorHit(b, dmg, flavor) {
+    if (flavor === 'salt') dmg *= 1 + 1.2 * (1 - b.hp / b.maxHp);
+    if (flavor === 'lime' && (b.type === 'wall' || b.def.attack)) dmg *= 2;
+    this.damageBuilding(b, dmg);
+    if (!b.alive) return;
+    if (flavor === 'garlic') { b.poisonT = 4; b.poisonDps = Math.max(b.poisonDps || 0, dmg * 0.3); }
+    if (flavor === 'mango' && b.def.attack) b.mangoT = 4;
+    if (flavor === 'onion' && b.def.attack) b.onionT = 3;
+  }
+
+  // kind: 'thorn' | 'sap' | 'spore'
+  damageUnit(u, amt, kind) {
     if (!u.alive) return;
+    if (u.flavor === 'cilantro' && (kind === 'thorn' || kind === 'sap') && Math.random() < 0.25) {
+      this.floatText(u.x, u.y - 0.6, 'dodge!', '#4fd16b');
+      return;
+    }
+    if (u.flavor === 'smoked' && kind === 'spore') amt *= 0.5;
     u.hp -= amt;
     u.hitT = 0.1;
     if (u.hp <= 0) {
@@ -254,7 +275,21 @@ export class Raid {
       for (let i = 0; i < 12; i++) this.particle(u.x, u.y - 0.2, rand(-3, 3), rand(-4, -0.5), rand(0.4, 0.8), col, rand(0.05, 0.12));
       for (let i = 0; i < 4; i++) this.particle(u.x, u.y - 0.2, rand(-2, 2), rand(-3, -1), 0.6, '#fff4c2', 0.05);
       sfx('squish');
+      if (u.flavor === 'tomato') this.salsaBurst(u);
     }
+  }
+
+  salsaBurst(u) {
+    const r = 1.8;
+    for (const v of this.units) {
+      if (v.alive && Math.hypot(v.x - u.x, v.y - u.y) <= r) {
+        v.hp = Math.min(v.maxHp, v.hp + v.maxHp * 0.35);
+        this.particle(v.x, v.y - 0.4, 0, -1.5, 0.6, '#7dff7a', 0.07, 0);
+      }
+    }
+    this.effects.push({ kind: 'salsa', x: u.x, y: u.y, r, t: 0, dur: 1.6 });
+    this.floatText(u.x, u.y - 0.5, 'Salsa!', '#ff5a3a');
+    sfx('splat');
   }
 
   damageBuilding(b, amt) {
@@ -326,8 +361,17 @@ export class Raid {
   }
 
   updateBuilding(b, dt) {
+    if (b.poisonT > 0) {
+      b.poisonT -= dt;
+      this.damageBuilding(b, b.poisonDps * dt);
+      if (Math.random() < dt * 6) this.particle(b.cx + rand(-0.5, 0.5), b.cy - 0.3, rand(-0.3, 0.3), -1, 0.8, '#b6d96a', 0.08, -0.5);
+      if (b.poisonT <= 0) b.poisonDps = 0;
+      if (!b.alive) return;
+    }
+    if (b.mangoT > 0) b.mangoT -= dt;
+    if (b.onionT > 0) b.onionT -= dt;
     if (!b.def.attack) return;
-    b.cool -= dt;
+    b.cool -= dt * (b.mangoT > 0 ? 0.6 : 1);
     let t = b.target;
     if (!t || !t.alive || Math.hypot(t.x - b.cx, t.y - b.cy) > b.def.range) t = b.target = null;
     if (b.cool <= 0 || !t) t = b.target = this.acquireTarget(b);
@@ -344,10 +388,13 @@ export class Raid {
     b.fireT = 0.1;
     const mx = b.cx + Math.cos(b.aim) * 0.7, my = b.cy - 0.35 + Math.sin(b.aim) * 0.7;
     if (b.def.attack === 'thorn') {
-      this.projectiles.push({ kind: 'thorn', x: mx, y: my, target: t, lx: t.x, ly: t.y, speed: 12, dmg: b.dmg });
+      const miss = b.onionT > 0 && Math.random() < 0.5;
+      this.projectiles.push({ kind: 'thorn', x: mx, y: my, target: t, lx: t.x, ly: t.y, speed: 12, dmg: b.dmg, miss,
+        ox: miss ? rand(-1.2, 1.2) : 0, oy: miss ? rand(-1.2, 1.2) : 0 });
       sfx('thorn');
     } else if (b.def.attack === 'sap') {
-      this.projectiles.push({ kind: 'sap', sx: mx, sy: my, tx: t.x, ty: t.y, t: 0, dur: 0.8, dmg: b.dmg, splash: b.def.splash, slow: b.def.slow });
+      const off = b.onionT > 0 ? 2 : 0;
+      this.projectiles.push({ kind: 'sap', sx: mx, sy: my, tx: t.x + rand(-off, off), ty: t.y + rand(-off, off), t: 0, dur: 0.8, dmg: b.dmg, splash: b.def.splash, slow: b.def.slow });
       sfx('sap');
     }
   }
@@ -364,7 +411,7 @@ export class Raid {
       t.timer -= dt;
       if (t.timer <= 0) {
         t.state = 'gone';
-        for (const u of this.units) if (Math.hypot(u.x - t.x, u.y - t.y) <= TRAP.radius) this.damageUnit(u, TRAP.dmg * this.strength);
+        for (const u of this.units) if (Math.hypot(u.x - t.x, u.y - t.y) <= TRAP.radius) this.damageUnit(u, TRAP.dmg * this.strength, 'spore');
         for (let i = 0; i < 30; i++) {
           const a = rand(0, Math.PI * 2), s = rand(1, 4);
           this.particle(t.x, t.y, Math.cos(a) * s, Math.sin(a) * s - 1, rand(0.5, 1.1), i % 2 ? '#ff9a2e' : '#e8452c', rand(0.1, 0.25), 0.5);
@@ -382,14 +429,14 @@ export class Raid {
   updateProjectiles(dt) {
     for (const p of this.projectiles) {
       if (p.kind === 'thorn') {
-        if (p.target.alive) { p.lx = p.target.x; p.ly = p.target.y - 0.2; }
+        if (p.target.alive) { p.lx = p.target.x + p.ox; p.ly = p.target.y - 0.2 + p.oy; }
         const dx = p.lx - p.x, dy = p.ly - p.y, d = Math.hypot(dx, dy);
         p.ang = Math.atan2(dy, dx);
         const step = p.speed * dt;
         if (d <= step) {
           p.dead = true;
-          if (p.target.alive) {
-            this.damageUnit(p.target, p.dmg);
+          if (p.target.alive && !p.miss) {
+            this.damageUnit(p.target, p.dmg, 'thorn');
             this.particle(p.lx, p.ly, rand(-1, 1), rand(-2, 0), 0.25, '#e8f5c8', 0.05);
           }
         } else { p.x += (dx / d) * step; p.y += (dy / d) * step; }
@@ -399,14 +446,17 @@ export class Raid {
           p.dead = true;
           if (p.kind === 'sap') {
             for (const u of this.units) {
-              if (Math.hypot(u.x - p.tx, u.y - p.ty) <= p.splash) { this.damageUnit(u, p.dmg); u.slowT = p.slow; }
+              if (Math.hypot(u.x - p.tx, u.y - p.ty) <= p.splash) {
+                this.damageUnit(u, p.dmg, 'sap');
+                if (u.flavor !== 'smoked') u.slowT = p.slow;
+              }
             }
             for (let i = 0; i < 12; i++) this.particle(p.tx, p.ty, rand(-2.5, 2.5), rand(-3, -0.5), rand(0.4, 0.7), '#e0a526', rand(0.06, 0.13));
             this.effects.push({ kind: 'puddle', x: p.tx, y: p.ty, r: p.splash, t: 0, dur: 2.5 });
             sfx('splat');
           } else if (p.kind === 'seed') {
             for (const b of this.buildings) {
-              if (b.alive && distToRect(p.tx, p.ty, b) <= p.splash) this.damageBuilding(b, p.dmg);
+              if (b.alive && distToRect(p.tx, p.ty, b) <= p.splash) this.flavorHit(b, p.dmg, p.flavor);
             }
             for (let i = 0; i < 14; i++) {
               const a = rand(0, Math.PI * 2), s = rand(1, 3.5);

@@ -53,7 +53,7 @@ function go(name) {
   scene.exit();
   app.dataset.scene = name;
   scene = name === 'raid' ? raid : garden;
-  if (name === 'raid') raid.enter({ army: { ...player.army }, level: player.hiveLevel });
+  if (name === 'raid') raid.enter({ army: { ...player.army }, level: player.hiveLevel, flavors: { ...player.flavors.infused } });
   else garden.enter();
   layout();
   showHelp(name, false);

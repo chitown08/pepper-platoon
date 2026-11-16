@@ -1,6 +1,6 @@
 // The raid scene: wires the raid simulation, renderer and on-screen controls together.
 
-import { UNITS, SPELL } from './config.js';
+import { UNITS, SPELL, FLAVORS } from './config.js';
 import { Raid } from './game.js';
 import { Renderer, drawUnitIcon, drawSpellIcon } from './render.js';
 import { sfx, unlockAudio } from './audio.js';
@@ -20,7 +20,7 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
     const btn = document.createElement('button');
     btn.className = 'card';
     btn.dataset.type = type;
-    btn.innerHTML = `<span class="count"></span><canvas width="96" height="96"></canvas><span class="name">${d.name}</span><span class="role">${d.role}</span>`;
+    btn.innerHTML = `<span class="count"></span><span class="flav"></span><canvas width="96" height="96"></canvas><span class="name">${d.name}</span><span class="role">${d.role}</span>`;
     drawUnitIcon(btn.querySelector('canvas'), type);
     btn.addEventListener('click', () => {
       unlockAudio();
@@ -167,8 +167,13 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
   }
 
   return {
-    enter({ army, level }) {
-      game = new Raid({ army, level });
+    enter({ army, level, flavors = {} }) {
+      game = new Raid({ army, level, flavors });
+      for (const [type, el] of Object.entries(cardEls)) {
+        const f = flavors[type];
+        el.querySelector('.flav').textContent = f ? FLAVORS[f].icon : '';
+        el.querySelector('.flav').title = f ? FLAVORS[f].name : '';
+      }
       window.raid = game; // handy for debugging in the console
       ui.selected = Object.keys(UNITS).find(k => game.army[k] > 0) || 'jalapeno';
       ui.spellArmed = false;

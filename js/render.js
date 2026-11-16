@@ -1,6 +1,6 @@
 // All drawing. World coordinates are in tiles; the canvas transform maps tiles to pixels.
 
-import { COLS, ROWS, DEPLOY_ROWS, SPELL, UNITS } from './config.js';
+import { COLS, ROWS, DEPLOY_ROWS, SPELL, UNITS, FLAVORS } from './config.js';
 
 // ---------- small helpers ----------
 
@@ -370,6 +370,10 @@ function drawUnit(c, u, t) {
   const s = u.d.radius * 3.2;
   const bob = Math.abs(Math.sin(u.walk)) * 0.06;
   ellipse(c, u.x, u.y + 0.05, u.d.radius * 0.9, u.d.radius * 0.4, 'rgba(0,0,0,0.3)');
+  if (u.flavor) {
+    c.beginPath(); c.ellipse(u.x, u.y + 0.05, u.d.radius * 1.1, u.d.radius * 0.5, 0, 0, Math.PI * 2);
+    c.strokeStyle = FLAVORS[u.flavor].color; c.lineWidth = 0.06; c.stroke();
+  }
   if (u.d.taunt) {
     c.beginPath(); c.arc(u.x, u.y, u.d.taunt, 0, Math.PI * 2);
     c.strokeStyle = 'rgba(255,90,70,0.18)'; c.lineWidth = 0.05; c.setLineDash([0.2, 0.2]); c.stroke(); c.setLineDash([]);
@@ -494,6 +498,15 @@ export class Renderer {
 
     // effects on the ground
     for (const e of game.effects) {
+      if (e.kind === 'salsa') {
+        const a = 0.8 * (1 - e.t / e.dur);
+        const k = Math.min(1, e.t * 6);
+        ellipse(c, e.x, e.y, e.r * 0.7 * k, e.r * 0.4 * k, `rgba(220,40,25,${a})`);
+        for (let i = 0; i < 6; i++) {
+          ellipse(c, e.x + Math.cos(i * 1.1) * e.r * 0.4 * k, e.y + Math.sin(i * 1.1) * e.r * 0.22 * k, 0.09, 0.06,
+            i % 2 ? `rgba(80,180,60,${a})` : `rgba(255,240,200,${a})`);
+        }
+      }
       if (e.kind === 'puddle') {
         const a = 0.45 * (1 - e.t / e.dur);
         ellipse(c, e.x, e.y, e.r * 0.8, e.r * 0.45, `rgba(230,165,40,${a})`);
@@ -536,6 +549,28 @@ export class Renderer {
         BUILDING_ART[b.type](c, b, t);
         c.restore();
       } else drawUnit(c, th.u, t);
+    }
+
+    // flavor debuffs on buildings
+    for (const b of game.buildings) {
+      if (!b.alive) continue;
+      if (b.mangoT > 0) {
+        c.globalAlpha = Math.min(1, b.mangoT);
+        ellipse(c, b.cx, b.cy - 0.45, b.w * 0.32, 0.18, '#ffb02e');
+        for (let i = 0; i < 3; i++) {
+          const dy = ((t * 0.8 + i * 0.33) % 1) * 0.6;
+          ellipse(c, b.cx - 0.3 + i * 0.3, b.cy - 0.35 + dy, 0.06, 0.09, '#f29a12');
+        }
+        c.globalAlpha = 1;
+      }
+      if (b.onionT > 0) {
+        c.globalAlpha = Math.min(0.6, b.onionT * 0.4);
+        for (let i = 0; i < 4; i++) {
+          const a = t * 1.5 + i * 1.57;
+          ellipse(c, b.cx + Math.cos(a) * 0.5, b.cy - 0.5 + Math.sin(a) * 0.2, 0.28, 0.18, '#c58ad6');
+        }
+        c.globalAlpha = 1;
+      }
     }
 
     // hp bars for damaged buildings

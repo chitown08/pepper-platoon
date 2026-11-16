@@ -1,6 +1,6 @@
 // The Garden scene: your Pepper Plant home base.
 
-import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS } from './config.js';
+import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS, FLAVORS, INFUSE_COST } from './config.js';
 import * as S from './state.js';
 import { drawStem, PLANT_ART, drawBubble, drawPlantIcon } from './garden-art.js';
 import { drawUnitIcon } from './render.js';
@@ -257,6 +257,7 @@ export function createGarden({ canvas, player, onRaid, showTip }) {
 
   const sheetEl = $('#sheet');
   function openSheet(kind, html) {
+    sheetEl.classList.toggle('again', sheet === kind);
     sheet = kind;
     sheetEl.innerHTML = html;
     sheetEl.classList.remove('hidden');
@@ -314,6 +315,7 @@ export function createGarden({ canvas, player, onRaid, showTip }) {
   }
 
   function openInfo(q) {
+    if (q !== 'stem' && q.type === 'lab') { openLab(q); return; }
     selected = q;
     openSheet('info', infoHtml(q));
     wireSheetCommon();
@@ -339,6 +341,56 @@ export function createGarden({ canvas, player, onRaid, showTip }) {
     if (note) note.textContent = err && err !== 'Max level' ? err : '';
     const ready = $('#sh-ready');
     if (ready && selected !== 'stem') ready.textContent = fmt(S.stored(selected));
+  }
+
+  // ----- Flavor Lab -----
+  function openLab(q) {
+    selected = q;
+    const troops = Object.keys(TROOPS);
+    const rows = Object.entries(FLAVORS).map(([f, d]) => {
+      const unlocked = p.flavors.unlocked.includes(f);
+      const right = unlocked
+        ? `<span class="tchips">${troops.map(tr => `<button class="tchip ${p.flavors.infused[tr] === f ? 'on' : ''}" data-f="${f}" data-t="${tr}" aria-label="Infuse ${UNITS[tr].name}"><canvas width="64" height="64"></canvas></button>`).join('')}</span>`
+        : `<button class="sbtn primary unlock" data-f="${f}"><b>Unlock</b><small>🌱 ${d.seeds}</small></button>`;
+      return `<div class="frow ${unlocked ? '' : 'locked'}">
+        <span class="ficon" style="--fc:${d.color}">${d.icon}</span>
+        <span class="bmain"><b>${d.name}</b><small>${d.text}</small><small class="best">Best on ${d.best}</small></span>
+        ${right}
+      </div>`;
+    }).join('');
+    openSheet('lab', `
+      <div class="sh-head"><h3>Flavor Lab <span class="lvl">🌱 ${fmt(p.seeds)}</span></h3><button class="x" data-close>✕</button></div>
+      <p class="sh-blurb">Unlock flavors with Spice Seeds. Then tap a troop to infuse it (💧 ${INFUSE_COST}). Each troop type holds one flavor; tap again to remove it.</p>
+      <div class="flist">${rows}</div>
+      <div class="row lab-foot">${btn('sh-move', 'Move Lab', '')}</div>`);
+    wireSheetCommon();
+    $('#sh-move').onclick = () => startMove(q);
+    for (const ch of sheetEl.querySelectorAll('.tchip')) {
+      drawUnitIcon(ch.querySelector('canvas'), ch.dataset.t);
+      ch.onclick = () => {
+        const had = p.flavors.infused[ch.dataset.t] === ch.dataset.f;
+        const err = S.infuse(p, ch.dataset.t, ch.dataset.f);
+        if (err) { sfx('deny'); showTip(err); return; }
+        sfx(had ? 'click' : 'sap');
+        if (!had) showTip(`${UNITS[ch.dataset.t].name}s infused with ${FLAVORS[ch.dataset.f].name}!`);
+        save(); keepScroll(() => openLab(q));
+      };
+    }
+    for (const b of sheetEl.querySelectorAll('.unlock')) {
+      b.onclick = () => {
+        const err = S.unlockFlavor(p, b.dataset.f);
+        if (err) { sfx('deny'); showTip(err); return; }
+        sfx('star'); sprout(q); save();
+        showTip(`${FLAVORS[b.dataset.f].name} unlocked!`);
+        keepScroll(() => openLab(q));
+      };
+    }
+  }
+
+  function keepScroll(fn) {
+    const y = sheetEl.scrollTop;
+    fn();
+    sheetEl.scrollTop = y;
   }
 
   // ----- build sheet -----

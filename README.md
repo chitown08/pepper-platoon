@@ -9,6 +9,7 @@ A mobile-first web strategy game: grow a sentient pepper plant, then lead platoo
 - **Blossoms** house your platoon. Growing troops costs Water.
 - Growing the **Stem** enlarges the plot, raises storage and unlocks more and higher-level buildings.
 - Tap any building to upgrade or move it.
+- The **Flavor Lab** turns 🌱 Spice Seeds (1 per raid star) into flavor recipes. Infuse a troop type with one flavor for 💧 Water: Tomato (healing salsa on death), Garlic (poison), Lime (double damage to walls and turrets), Salt (finisher), Cilantro (dodge), Mango (slows turrets), Onion (turrets miss), Chipotle (tougher, resists sap and spores).
 - Progress is saved in the browser on this device.
 
 **Sauce Raids**: attack an AI **Bug Hive** with the troops you've grown.

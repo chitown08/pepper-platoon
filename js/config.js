@@ -93,10 +93,10 @@ export const TROOPS = {
 // cost = Sunlight to reach that level.
 export const STEM_LEVELS = [
   null,
-  { cost: 0,     area: 9,  cap: { sun: 3000,  water: 3000 },  limits: { leaf: 2, root: 2, blossom: 1 } },
-  { cost: 2000,  area: 11, cap: { sun: 8000,  water: 8000 },  limits: { leaf: 3, root: 3, blossom: 2 } },
-  { cost: 6000,  area: 13, cap: { sun: 20000, water: 20000 }, limits: { leaf: 4, root: 4, blossom: 3 } },
-  { cost: 15000, area: 15, cap: { sun: 45000, water: 45000 }, limits: { leaf: 5, root: 5, blossom: 4 } },
+  { cost: 0,     area: 9,  cap: { sun: 3000,  water: 3000 },  limits: { leaf: 2, root: 2, blossom: 1, lab: 1 } },
+  { cost: 2000,  area: 11, cap: { sun: 8000,  water: 8000 },  limits: { leaf: 3, root: 3, blossom: 2, lab: 1 } },
+  { cost: 6000,  area: 13, cap: { sun: 20000, water: 20000 }, limits: { leaf: 4, root: 4, blossom: 3, lab: 1 } },
+  { cost: 15000, area: 15, cap: { sun: 45000, water: 45000 }, limits: { leaf: 5, root: 5, blossom: 4, lab: 1 } },
 ];
 
 // Garden structures. Arrays are indexed by level (index 0 unused).
@@ -119,4 +119,32 @@ export const PLANTS = {
     cost: [0, 300, 1200, 3500, 8000],
     housing: [0, 20, 30, 40, 50],
   },
+  lab: {
+    name: 'Flavor Lab', size: 2, blurb: 'Brew flavors that change how your troops fight.',
+    cost: [0, 400],
+  },
+};
+
+// ---------- Flavor Lab ----------
+// Unlock a flavor once with Spice Seeds, then infuse a troop type with it for Water.
+// Each troop type carries one flavor at a time.
+export const INFUSE_COST = 200; // Water
+
+export const FLAVORS = {
+  tomato:   { name: 'Tomato',   icon: '🍅', color: '#e8352a', seeds: 2, best: 'Bell Pepper',
+              text: 'Juicy Burst: when it falls, it splats into salsa that heals nearby peppers.' },
+  garlic:   { name: 'Garlic',   icon: '🧄', color: '#d9d2b8', seeds: 2, best: 'Jalapeño',
+              text: 'Lingering Stink: hits leave a poison that keeps damaging the building.' },
+  lime:     { name: 'Lime',     icon: '🍋', color: '#b8e03a', seeds: 3, best: 'Habanero',
+              text: 'Acidic Tang: double damage to walls and turrets.' },
+  salt:     { name: 'Salt',     icon: '🧂', color: '#f4f4f4', seeds: 3, best: 'Jalapeño',
+              text: 'Salt in the Wound: hits harder the more damaged the target is.' },
+  cilantro: { name: 'Cilantro', icon: '🌿', color: '#4fd16b', seeds: 3, best: 'Habanero',
+              text: 'Soapy Reflexes: 25% chance to dodge thorns and sap.' },
+  mango:    { name: 'Mango',    icon: '🥭', color: '#ffb02e', seeds: 3, best: 'Jalapeño',
+              text: 'Sugar Rush Crash: hit turrets fire 40% slower for 4 seconds.' },
+  onion:    { name: 'Onion',    icon: '🧅', color: '#c58ad6', seeds: 4, best: 'Habanero',
+              text: 'Tear Gas: hit turrets miss half their shots for 3 seconds.' },
+  smoked:   { name: 'Chipotle', icon: '🔥', color: '#8b4a2b', seeds: 4, best: 'Bell Pepper',
+              text: 'Smoked & Cured: +35% health, ignores sap slow, half damage from Spicy Spores.' },
 };
