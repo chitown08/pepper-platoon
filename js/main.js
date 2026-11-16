@@ -76,7 +76,7 @@ function go(name, arg) {
   } else if (name === 'raid') {
     raidNode = arg;
     raid.enter({
-      army: { ...player.army }, flavors: { ...player.flavors.infused },
+      army: { ...player.army }, flavors: { ...player.flavors.infused, ...S.strainFlavors(player) }, unitDefs: S.unitDefs(player),
       level: S.nodeLevel(arg), layout: S.nodeLayout(arg), lootScale: S.nodeLootScale(player, arg), name: MAP_NODES[arg].name,
     });
   } else if (name === 'map') map.enter();

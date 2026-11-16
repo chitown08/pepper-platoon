@@ -1,6 +1,6 @@
 // The Garden scene: your Pepper Plant home base.
 
-import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS, FLAVORS, INFUSE_COST, DIG, BUILDINGS, DEFENSE, TRAP } from './config.js';
+import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS, FLAVORS, INFUSE_COST, DIG, BUILDINGS, DEFENSE, TRAP, GREENHOUSE } from './config.js';
 import * as S from './state.js';
 import { drawStem, PLANT_ART, drawBubble, drawPlantIcon } from './garden-art.js';
 import { drawUnitIcon, drawTurret, drawHedge } from './render.js';
@@ -372,6 +372,7 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
 
   function openInfo(q) {
     if (q !== 'stem' && q.type === 'lab') { openLab(q); return; }
+    if (q !== 'stem' && q.type === 'greenhouse') { openGreenhouse(q); return; }
     selected = q;
     openSheet('info', infoHtml(q));
     wireSheetCommon();
@@ -447,6 +448,102 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
     }
   }
 
+  // ----- Greenhouse -----
+  const gh = { a: 'bell', b: 'habanero', f: null, fresh: null };
+  const statLine = (d) => {
+    const bits = [`❤ ${d.hp}`, `⚔ ${d.dmg}`, `💨 ${d.speed}`];
+    if (d.ranged) bits.push('ranged');
+    if (d.splash) bits.push('splash');
+    if (d.phase) bits.push('phases');
+    if (d.taunt) bits.push('taunts');
+    if (d.targeting === 'defense') bits.push('hunts turrets');
+    return bits.join(' · ');
+  };
+
+  function openGreenhouse(q) {
+    selected = q;
+    const parents = S.breedParents(p);
+    if (!parents.some(o => o.key === gh.a)) gh.a = parents[0].key;
+    if (!parents.some(o => o.key === gh.b)) gh.b = parents[Math.min(1, parents.length - 1)].key;
+    if (gh.f && !p.flavors.unlocked.includes(gh.f)) gh.f = null;
+    const chips = (role, cur) => parents.map(o => `<button class="pchip ${o.key === cur ? 'on' : ''}" data-role="${role}" data-k="${o.key}"><canvas width="64" height="64"></canvas><span>${o.name}</span></button>`).join('');
+    const flavChips = `<button class="pchip flav ${!gh.f ? 'on' : ''}" data-role="f" data-k=""><span class="fi">—</span><span>None</span></button>` +
+      p.flavors.unlocked.map(f => `<button class="pchip flav ${gh.f === f ? 'on' : ''}" data-role="f" data-k="${f}"><span class="fi">${FLAVORS[f].icon}</span><span>${FLAVORS[f].name}</span></button>`).join('');
+    const quote = S.breedQuote(p, gh.a, gh.b, gh.f);
+    const err = S.canBreed(p, gh.a, gh.b, gh.f);
+    const strains = p.strains.map(s => {
+      const d = S.strainDef(s);
+      return `<div class="srow ${s.dud ? 'dud' : ''} ${gh.fresh === s.id ? 'fresh' : ''}" data-id="${s.id}">
+        <canvas width="96" height="96"></canvas>
+        <span class="bmain"><b>${s.name}${s.flavor ? ` ${FLAVORS[s.flavor].icon}` : ''}</b>
+          <small>${s.dud ? GREENHOUSE.duds[s.dud].text : `Gen ${s.gen} · ${statLine(d)}`}</small>
+          <small>Takes ${s.housing} space · 💧 ${s.cost} to grow</small>
+          <input class="scode" readonly value="${S.seedCode(s)}" aria-label="Seed code for ${s.name}"></span>
+        <span class="sbtns"><button class="sbtn mini copy" data-id="${s.id}"><b>Copy code</b></button><button class="sbtn mini compost" data-id="${s.id}"><b>Compost</b></button></span>
+      </div>`;
+    }).join('') || '<p class="sh-blurb">No strains yet. Cross two peppers above!</p>';
+    openSheet('greenhouse', `
+      <div class="sh-head"><h3>Greenhouse <span class="lvl">🌱 ${fmt(p.seeds)}</span></h3><button class="x" data-close>✕</button></div>
+      <p class="sh-blurb">The <b>Body</b> parent gives health, speed and size. The <b>Seed</b> parent gives the attack and who it targets. Mix in a flavor to stabilize the cross, or risk a Dud.</p>
+      <h4 class="bgroup">Body parent</h4><div class="pchips">${chips('a', gh.a)}</div>
+      <h4 class="bgroup">Seed parent</h4><div class="pchips">${chips('b', gh.b)}</div>
+      <h4 class="bgroup">Stabilizer</h4><div class="pchips">${flavChips}</div>
+      <div class="breed-preview">
+        <span>→ <b>${quote.name}</b> · Gen ${quote.gen}</span>
+        <span class="odds ${quote.chance < 0.5 ? 'risky' : ''}">${Math.round(quote.chance * 100)}% chance it sprouts</span>
+      </div>
+      <div class="row">${btn('gh-breed', 'Cross-pollinate', `💧 ${quote.water} · 🌱 ${quote.seeds}`, 'primary')}</div>
+      <p class="sh-note">${err && err !== 'Pick two parents' ? err : ''}</p>
+      <h4 class="bgroup">Your strains (${p.strains.length} / ${GREENHOUSE.maxStrains})</h4>
+      <div class="slist">${strains}</div>
+      <h4 class="bgroup">Plant a seed code</h4>
+      <div class="row codein"><input id="gh-code" placeholder="Paste a PP1-… code from a friend" aria-label="Seed code"><button id="gh-plant" class="sbtn"><b>Plant</b></button></div>
+      <div class="row lab-foot">${btn('sh-move', 'Move Greenhouse', '')}</div>`);
+    wireSheetCommon();
+    $('#gh-breed').classList.toggle('disabled', !!err);
+    for (const ch of sheetEl.querySelectorAll('.pchip')) {
+      const cv = ch.querySelector('canvas');
+      if (cv) { const k = ch.dataset.k; drawUnitIcon(cv, k, UNITS[k] ? undefined : S.strainDef(p.strains.find(s => s.id === k))); }
+      ch.onclick = () => { gh[ch.dataset.role] = ch.dataset.k || null; sfx('click'); keepScroll(() => openGreenhouse(q)); };
+    }
+    for (const row of sheetEl.querySelectorAll('.srow')) {
+      const s = p.strains.find(x => x.id === row.dataset.id);
+      drawUnitIcon(row.querySelector('canvas'), s.id, S.strainDef(s));
+    }
+    for (const b of sheetEl.querySelectorAll('.copy')) {
+      b.onclick = () => {
+        const input = b.closest('.srow').querySelector('.scode');
+        const done = () => { showTip('Seed code copied!'); sfx('click'); };
+        const fallback = () => { input.focus(); input.select(); showTip('Code selected. Copy it from here.'); };
+        try { navigator.clipboard.writeText(input.value).then(done, fallback); } catch (e) { fallback(); }
+      };
+    }
+    for (const b of sheetEl.querySelectorAll('.compost')) {
+      b.onclick = () => {
+        if (b.dataset.armed !== '1') { b.dataset.armed = '1'; b.querySelector('b').textContent = 'Sure?'; return; }
+        S.compostStrain(p, b.dataset.id); sfx('crunch'); save(); keepScroll(() => openGreenhouse(q));
+      };
+    }
+    $('#gh-breed').onclick = () => {
+      const r = S.breed(p, gh.a, gh.b, gh.f);
+      if (r.error) { sfx('deny'); showTip(r.error); return; }
+      gh.fresh = r.strain.id;
+      save(); sprout(q);
+      if (r.strain.dud) { sfx('lose'); showTip(`Oh no… a ${r.strain.name}! At least turrets will pity it.`); }
+      else { sfx('win'); showTip(`It's a ${r.strain.name}! Grow them in your Platoon.`); }
+      openGreenhouse(q);
+      const fresh = sheetEl.querySelector('.srow.fresh');
+      if (fresh) fresh.scrollIntoView({ block: 'nearest' });
+    };
+    $('#gh-plant').onclick = () => {
+      const r = S.plantSeedCode(p, $('#gh-code').value);
+      if (r.error) { sfx('deny'); showTip(r.error); return; }
+      gh.fresh = r.strain.id; save(); sfx('win'); showTip(`${r.strain.name} sprouted from the seed code!`);
+      openGreenhouse(q);
+    };
+    $('#sh-move').onclick = () => startMove(q);
+  }
+
   function keepScroll(fn) {
     const y = sheetEl.scrollTop;
     fn();
@@ -497,6 +594,13 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
   // ----- army sheet -----
   function openArmy() {
     selected = null;
+    const strainRows = p.strains.map(s => `
+      <div class="arow hybrid ${s.dud ? 'dud' : ''}" data-type="${s.id}">
+        <canvas width="96" height="96"></canvas>
+        <span class="bmain"><b>${s.name}${s.flavor ? ` ${FLAVORS[s.flavor].icon}` : ''}</b><small>${s.dud ? 'Dud · stuns turrets with pity' : `Gen-${s.gen} hybrid · takes ${s.housing} space`}</small><small class="blurb">${s.dud ? '' : statLine(S.strainDef(s))}</small></span>
+        <span class="acount" id="ac-${s.id}">x0</span>
+        <button class="sbtn primary train" data-type="${s.id}"><b>+1</b><small>💧 ${s.cost}</small></button>
+      </div>`).join('');
     const rows = Object.entries(TROOPS).map(([type, t]) => {
       const locked = t.stem && p.stem.level < t.stem;
       const info = t.max ? `${UNITS[type].role} · one per raid, no space needed` : `${UNITS[type].role} · takes ${t.housing} space`;
@@ -512,9 +616,13 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
     openSheet('army', `
       <div class="sh-head"><h3>Grow your platoon</h3><button class="x" data-close>✕</button></div>
       <div class="housing"><span>Blossom space</span><div class="hbar"><i id="hbar"></i></div><b id="hnum"></b></div>
-      <div class="alist">${rows}</div>`);
+      <div class="alist">${rows}</div>
+      ${strainRows ? `<h4 class="bgroup">Greenhouse hybrids</h4><div class="alist">${strainRows}</div>` : ''}`);
     wireSheetCommon();
-    for (const el of sheetEl.querySelectorAll('.arow')) drawUnitIcon(el.querySelector('canvas'), el.dataset.type);
+    for (const el of sheetEl.querySelectorAll('.arow')) {
+      const s = p.strains.find(x => x.id === el.dataset.type);
+      drawUnitIcon(el.querySelector('canvas'), el.dataset.type, s ? S.strainDef(s) : undefined);
+    }
     for (const b of sheetEl.querySelectorAll('.train')) {
       b.onclick = () => {
         const err = S.train(p, b.dataset.type);
@@ -530,7 +638,7 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
     const hb = $('#hbar'); if (!hb) return;
     hb.style.width = Math.min(100, used / Math.max(1, capH) * 100) + '%';
     $('#hnum').textContent = `${used} / ${capH}`;
-    for (const type of Object.keys(TROOPS)) {
+    for (const type of [...Object.keys(TROOPS), ...p.strains.map(s => s.id)]) {
       $('#ac-' + type).textContent = 'x' + (p.army[type] || 0);
       sheetEl.querySelector(`.train[data-type="${type}"]`).classList.toggle('disabled', !!S.canTrain(p, type));
     }

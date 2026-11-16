@@ -1,7 +1,7 @@
 // Raid simulation: units, defenses, projectiles, traps, Heat and scoring.
 
 import {
-  COLS, ROWS, DEPLOY_ROWS, RAID_TIME, UNITS, BUILDINGS, TRAP, HEAT, SPELL, LAYOUT, WALL_PATH_COST, HIVE, FLAVORS, DEFENSE,
+  COLS, ROWS, DEPLOY_ROWS, RAID_TIME, UNITS, BUILDINGS, TRAP, HEAT, SPELL, LAYOUT, WALL_PATH_COST, HIVE, FLAVORS, DEFENSE, GREENHOUSE,
 } from './config.js';
 import { Grid, distToRect, findPath } from './grid.js';
 import { sfx } from './audio.js';
@@ -49,7 +49,7 @@ export class Raid {
     this.pathsDirty = false;
     this.loot = { sun: 0, water: 0 };
     this.army = {};
-    if (!this.defense) for (const k in UNITS) this.army[k] = this.opts.army ? (this.opts.army[k] || 0) : UNITS[k].army;
+    if (!this.defense) for (const k in this.defs) this.army[k] = this.opts.army ? (this.opts.army[k] || 0) : (this.defs[k].army || 0);
 
     const layout = this.opts.layout || LAYOUT;
     for (const b of layout.buildings) this.addBuilding(b.type, b.x, b.y, b.level);
@@ -86,7 +86,7 @@ export class Raid {
 
   deploy(type, x, y) {
     if (this.phase !== 'scout' && this.phase !== 'battle') return false;
-    const d = UNITS[type];
+    const d = this.defs[type];
     if (!d || this.army[type] <= 0 || !this.canDeployAt(x, y)) return false;
     if (this.phase === 'scout') this.phase = 'battle';
     const n = Math.min(d.perDeploy, this.army[type]);
@@ -98,6 +98,7 @@ export class Raid {
     this.army[type] -= n;
     for (let i = 0; i < 8; i++) this.particle(x, y, rand(-2, 2), rand(-3, -1), 0.4, '#7a5a2e', 0.08);
     sfx('pop');
+    if (d.dud) this.pityStare(x, y);
     return true;
   }
 
@@ -313,12 +314,25 @@ export class Raid {
       u.alive = false;
       if (u.bug) this.bugsKilled++;
       const col = { jalapeno: '#3fa34d', bell: '#e23b2e', habanero: '#ff8a1c', ghost: '#e8e2f5', reaper: '#8b0f0a',
-        aphid: '#a8e05f', beetle: '#3a2a1a', wasp: '#ffd23f' }[u.type];
+        aphid: '#a8e05f', beetle: '#3a2a1a', wasp: '#ffd23f' }[u.type] || u.d.tint || '#8a7a5a';
       for (let i = 0; i < 12; i++) this.particle(u.x, u.y - 0.2, rand(-3, 3), rand(-4, -0.5), rand(0.4, 0.8), col, rand(0.05, 0.12));
       for (let i = 0; i < 4; i++) this.particle(u.x, u.y - 0.2, rand(-2, 2), rand(-3, -1), 0.6, '#fff4c2', 0.05);
       sfx('squish');
       if (u.flavor === 'tomato') this.salsaBurst(u);
     }
+  }
+
+  // A Dud flops onto the field; nearby turrets pause to stare in pity.
+  pityStare(x, y) {
+    let any = false;
+    for (const b of this.buildings) {
+      if (!b.alive || !b.def.attack || Math.hypot(b.cx - x, b.cy - y) > GREENHOUSE.pityRange) continue;
+      b.stunT = Math.max(b.stunT || 0, rand(...GREENHOUSE.pity));
+      this.floatText(b.cx, b.y - 0.2, 'aww…', '#cfe8ff');
+      any = true;
+    }
+    this.floatText(x, y - 0.6, 'squeak', '#e8d8b0');
+    if (any) sfx('deny');
   }
 
   salsaBurst(u) {
@@ -422,6 +436,7 @@ export class Raid {
     if (b.mangoT > 0) b.mangoT -= dt;
     if (b.onionT > 0) b.onionT -= dt;
     if (!b.def.attack) return;
+    if (b.stunT > 0) { b.stunT -= dt; return; } // staring at a Dud
     b.cool -= dt * (b.mangoT > 0 ? 0.6 : 1);
     let t = b.target;
     if (!t || !t.alive || t.hidden || Math.hypot(t.x - b.cx, t.y - b.cy) > b.def.range) t = b.target = null;

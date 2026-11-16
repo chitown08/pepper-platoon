@@ -1,6 +1,6 @@
 // Player progress: garden layout, resources, army. Saved to this device's browser storage.
 
-import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST, MAP_NODES, LAYOUTS, BUILDINGS, HIVE, REPEAT_LOOT, parseLayout, DIG, DEFENSE, BUGS, ROWS as RAID_ROWS, COLS as RAID_COLS } from './config.js';
+import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST, MAP_NODES, LAYOUTS, BUILDINGS, HIVE, REPEAT_LOOT, parseLayout, DIG, DEFENSE, BUGS, ROWS as RAID_ROWS, COLS as RAID_COLS, UNITS, GREENHOUSE } from './config.js';
 
 const SAVE_KEY = 'pepper-platoon-save-v2';
 let nextId = 1;
@@ -26,6 +26,7 @@ export function newPlayer() {
     roulette: { lastDay: null },
     boosts: {},
     defense: { next: null, shieldUntil: 0, wins: 0, losses: 0 },
+    strains: [],
   };
 }
 
@@ -47,6 +48,7 @@ function loadRaw() {
         p.flavors = p.flavors || { unlocked: [], infused: {} };
         p.roulette = p.roulette || { lastDay: null };
         p.defense = p.defense || { next: null, shieldUntil: 0, wins: 0, losses: 0 };
+        p.strains = p.strains || [];
         if (p.defense.next == null && p.map && p.map.conquered.length) p.defense.next = Date.now();
         p.boosts = p.boosts || {};
         if (!p.map) {
@@ -89,7 +91,7 @@ export function housingCap(p) {
   return p.plants.filter(q => q.type === 'blossom').reduce((a, q) => a + PLANTS.blossom.housing[q.level], 0);
 }
 export function housingUsed(p) {
-  return Object.entries(p.army).reduce((a, [k, n]) => a + n * (TROOPS[k]?.housing || 0), 0);
+  return Object.entries(p.army).reduce((a, [k, n]) => a + n * (troopInfo(p, k)?.housing || 0), 0);
 }
 
 // How much a Leaf/Root has stored up right now.
@@ -208,7 +210,8 @@ export function move(p, q, x, y) {
 }
 
 export function canTrain(p, type) {
-  const t = TROOPS[type];
+  const t = troopInfo(p, type);
+  if (!t) return 'Unknown troop';
   if (t.stem && p.stem.level < t.stem) return `Grow your Stem to level ${t.stem} first`;
   if (t.max && (p.army[type] || 0) >= t.max) return `You can only hold ${t.max}`;
   if (housingUsed(p) + t.housing > housingCap(p)) return 'Blossoms are full';
@@ -220,8 +223,9 @@ export function canTrain(p, type) {
 export function train(p, type) {
   const err = canTrain(p, type);
   if (err) return err;
-  p.water -= TROOPS[type].cost;
-  p.seeds -= TROOPS[type].seeds || 0;
+  const t = troopInfo(p, type);
+  p.water -= t.cost;
+  p.seeds -= t.seeds || 0;
   p.army[type] = (p.army[type] || 0) + 1;
   return null;
 }
@@ -440,4 +444,179 @@ export function recordDefense(p, won) {
       { icon: '🥀', text: `Wilted: no attacks for ${DEFENSE.shieldHours} hours` });
   }
   return lines;
+}
+
+// ---------- Greenhouse hybrids ----------
+
+const findStrain = (p, id) => p.strains.find(s => s.id === id);
+
+// Housing & Water cost for any troop, base or hybrid.
+export function troopInfo(p, type) {
+  if (TROOPS[type]) return TROOPS[type];
+  const s = findStrain(p, type);
+  return s ? { housing: s.housing, cost: s.cost } : null;
+}
+
+// Fighting stats for hybrids, in the same shape as UNITS entries.
+export function strainDef(s) {
+  return {
+    ...s.stats, name: s.name, role: s.dud ? 'Dud' : `Gen-${s.gen} hybrid`,
+    perDeploy: 1, army: 0, hybrid: true, id: s.id, body: s.body, tint: s.tint, dud: s.dud || false,
+  };
+}
+
+// Every troop def the raid engine needs: base species + your hybrids.
+export function unitDefs(p) {
+  const out = { ...UNITS };
+  for (const s of p.strains) out[s.id] = strainDef(s);
+  return out;
+}
+
+// Flavors baked into hybrids at breeding time.
+export function strainFlavors(p) {
+  const out = {};
+  for (const s of p.strains) if (s.flavor) out[s.id] = s.flavor;
+  return out;
+}
+
+// Parent options: base species you've unlocked, plus non-Dud hybrids.
+export function breedParents(p) {
+  const out = GREENHOUSE.breedable
+    .filter(k => !TROOPS[k].stem || p.stem.level >= TROOPS[k].stem)
+    .map(k => ({ key: k, name: UNITS[k].name, gen: 0 }));
+  for (const s of p.strains) if (!s.dud) out.push({ key: s.id, name: s.name, gen: s.gen });
+  return out;
+}
+
+function parentInfo(p, key) {
+  if (UNITS[key]) {
+    const d = UNITS[key];
+    return {
+      gen: 0, body: key, bodyName: GREENHOUSE.body[key], tag: GREENHOUSE.tag[key], tint: GREENHOUSE.tint[key],
+      housing: TROOPS[key].housing, cost: TROOPS[key].cost,
+      stats: { hp: d.hp, speed: d.speed, radius: d.radius, dmg: d.dmg, atkInterval: d.atkInterval, range: d.range,
+        splash: d.splash, ranged: d.ranged, targeting: d.targeting, phase: d.phase, fadeIn: d.fadeIn, taunt: d.taunt },
+    };
+  }
+  const s = findStrain(p, key);
+  return s && !s.dud ? { gen: s.gen, body: s.body, bodyName: s.bodyName, tag: s.tag, tint: s.tint, housing: s.housing, cost: s.cost, stats: s.stats } : null;
+}
+
+export function breedQuote(p, a, b, flavor) {
+  const A = parentInfo(p, a), B = parentInfo(p, b);
+  if (!A || !B) return null;
+  const g = Math.min(2, Math.max(A.gen, B.gen));
+  const same = a === b;
+  const chance = same ? 1 : Math.min(0.95, GREENHOUSE.chance[g] + (flavor ? GREENHOUSE.stabilizer : 0));
+  const gen = Math.max(A.gen, B.gen) + 1;
+  const roman = ['', '', ' II', ' III', ' IV', ' V', ' VI'][Math.min(gen, 6)];
+  return {
+    A, B, gen, chance, water: GREENHOUSE.water[g], seeds: GREENHOUSE.seeds[g],
+    name: `${B.tag}-${A.bodyName}${roman}`,
+    housing: Math.max(A.housing, B.housing),
+    cost: Math.round(((A.cost + B.cost) / 2) * 1.25),
+  };
+}
+
+export function canBreed(p, a, b, flavor) {
+  const q = breedQuote(p, a, b, flavor);
+  if (!q) return 'Pick two parents';
+  if (p.strains.length >= GREENHOUSE.maxStrains) return `Your Greenhouse holds ${GREENHOUSE.maxStrains} strains. Compost one first`;
+  if (flavor && !p.flavors.unlocked.includes(flavor)) return 'Unlock that flavor in the Lab first';
+  if (p.water < q.water) return 'Not enough Water';
+  if (p.seeds < q.seeds) return 'Not enough Spice Seeds';
+  return null;
+}
+
+let strainSeq = 1;
+const newStrainId = (p) => {
+  let id;
+  do { id = 's' + (Date.now().toString(36).slice(-4)) + (strainSeq++); } while (findStrain(p, id));
+  return id;
+};
+
+// Cross-pollinate. Returns { strain } (strain.dud set if it failed) or { error }.
+export function breed(p, a, b, flavor) {
+  const err = canBreed(p, a, b, flavor);
+  if (err) return { error: err };
+  const q = breedQuote(p, a, b, flavor);
+  p.water -= q.water;
+  p.seeds -= q.seeds;
+  const id = newStrainId(p);
+  if (Math.random() > q.chance) {
+    const kind = Math.random() < 0.5 ? 'wrinkle' : 'potato';
+    const s = {
+      id, name: GREENHOUSE.duds[kind].name, gen: q.gen, dud: kind, body: kind, bodyName: '', tag: '', tint: '#8a7a5a',
+      housing: 1, cost: 5, flavor: null, parents: [a, b],
+      stats: { hp: 1, speed: 0.3, radius: 0.24, dmg: 0, atkInterval: 1, range: 0.6, targeting: 'any' },
+    };
+    p.strains.push(s);
+    return { strain: s };
+  }
+  const [lo, hi] = GREENHOUSE.wobble[Math.min(2, q.gen - 1)];
+  const w = () => lo + Math.random() * (hi - lo);
+  const r2 = (n) => Math.round(n * 100) / 100;
+  const A = q.A.stats, B = q.B.stats;
+  const stats = {
+    hp: Math.round(A.hp * GREENHOUSE.hpMult * w()),
+    speed: r2(A.speed * w()),
+    radius: A.radius,
+    dmg: Math.round(B.dmg * GREENHOUSE.dmgMult * w()),
+    atkInterval: r2(B.atkInterval * (2 - w())),
+    range: B.range, splash: B.splash, ranged: B.ranged, targeting: B.targeting,
+    phase: B.phase, fadeIn: B.fadeIn, taunt: B.taunt,
+  };
+  const s = {
+    id, name: q.name, gen: q.gen, dud: false, body: q.A.body, bodyName: q.A.bodyName, tag: q.B.tag, tint: q.B.tint,
+    housing: q.housing, cost: q.cost, flavor: flavor || null, parents: [a, b], stats,
+  };
+  p.strains.push(s);
+  return { strain: s };
+}
+
+export function compostStrain(p, id) {
+  p.strains = p.strains.filter(s => s.id !== id);
+  delete p.army[id];
+}
+
+// ----- seed codes: share a strain as text -----
+
+export function seedCode(s) {
+  const data = { n: s.name, g: s.gen, d: s.dud || 0, b: s.body, bn: s.bodyName, t: s.tag, c: s.tint, h: s.housing, w: s.cost, f: s.flavor || 0, s: s.stats };
+  return 'PP1-' + btoa(unescape(encodeURIComponent(JSON.stringify(data)))).replace(/=+$/, '');
+}
+
+// Seed codes come from other people: keep names to plain letters, digits and simple punctuation.
+const clean = (v, n) => String(v || '').replace(/[^\p{L}\p{N} \-'.]/gu, '').slice(0, n).trim();
+
+export function plantSeedCode(p, code) {
+  if (p.strains.length >= GREENHOUSE.maxStrains) return { error: 'Your Greenhouse is full' };
+  try {
+    const raw = String(code).trim();
+    if (!raw.startsWith('PP1-')) throw new Error();
+    const d = JSON.parse(decodeURIComponent(escape(atob(raw.slice(4)))));
+    const num = (v, lo, hi, def) => (typeof v === 'number' && isFinite(v) ? Math.min(hi, Math.max(lo, v)) : def);
+    const st = d.s || {};
+    const stats = {
+      hp: num(st.hp, 1, 1600, 100), speed: num(st.speed, 0.2, 2.6, 1), radius: num(st.radius, 0.15, 0.45, 0.25),
+      dmg: num(st.dmg, 0, 160, 10), atkInterval: num(st.atkInterval, 0.4, 3, 1), range: num(st.range, 0.5, 5, 0.6),
+      splash: st.splash ? num(st.splash, 0.5, 1.5, 1) : undefined, ranged: !!st.ranged,
+      targeting: st.targeting === 'defense' ? 'defense' : 'any',
+      phase: !!st.phase, fadeIn: st.phase ? num(st.fadeIn, 0, 3, 2.5) : undefined, taunt: st.taunt ? num(st.taunt, 1, 4, 3.2) : undefined,
+    };
+    const bodies = ['jalapeno', 'habanero', 'bell', 'ghost', 'wrinkle', 'potato'];
+    const s = {
+      id: newStrainId(p), name: clean(d.n, 24) || 'Mystery Pepper', gen: num(d.g, 1, 9, 1),
+      dud: d.d === 'wrinkle' || d.d === 'potato' ? d.d : false,
+      body: bodies.includes(d.b) ? d.b : 'jalapeno', bodyName: clean(d.bn, 12), tag: clean(d.t, 12),
+      tint: /^#[0-9a-f]{6}$/i.test(d.c) ? d.c : '#3fa34d',
+      housing: num(d.h, 1, 6, 2), cost: num(d.w, 5, 400, 60),
+      flavor: FLAVORS[d.f] && !FLAVORS[d.f].rare ? d.f : null, parents: [], stats,
+    };
+    if (s.dud) Object.assign(s.stats, { hp: 1, dmg: 0, speed: 0.3 });
+    p.strains.push(s);
+    return { strain: s };
+  } catch (e) {
+    return { error: "That seed code didn't sprout. Check it was copied exactly." };
+  }
 }

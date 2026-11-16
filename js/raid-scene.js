@@ -15,22 +15,30 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
   // ---------- cards ----------
 
   const cardsEl = $('#cards');
-  const cardEls = {};
-  for (const [type, d] of Object.entries(UNITS)) {
-    const btn = document.createElement('button');
-    btn.className = 'card';
-    btn.dataset.type = type;
-    btn.innerHTML = `<span class="count"></span><span class="flav"></span><canvas width="96" height="96"></canvas><span class="name">${d.name}</span><span class="role">${d.role}</span>`;
-    drawUnitIcon(btn.querySelector('canvas'), type);
-    btn.addEventListener('click', () => {
-      unlockAudio();
-      ui.selected = type;
-      ui.spellArmed = false;
-      sfx('click');
-      refreshCards();
-    });
-    cardsEl.appendChild(btn);
-    cardEls[type] = btn;
+  let cardEls = {};
+  // One card per troop type you brought (base species and hybrids).
+  function buildCards(defs, army, flavors) {
+    for (const el of Object.values(cardEls)) el.remove();
+    cardEls = {};
+    for (const [type, d] of Object.entries(defs)) {
+      if (!army[type]) continue;
+      const btn = document.createElement('button');
+      btn.className = 'card' + (d.hybrid ? ' hybrid' : '');
+      btn.dataset.type = type;
+      const f = flavors[type];
+      btn.innerHTML = `<span class="count"></span><span class="flav" title="${f ? FLAVORS[f].name : ''}">${f ? FLAVORS[f].icon : ''}</span><canvas width="96" height="96"></canvas><span class="name">${d.name}</span><span class="role">${d.role}</span>`;
+      drawUnitIcon(btn.querySelector('canvas'), type, d);
+      btn.addEventListener('click', () => {
+        unlockAudio();
+        ui.selected = type;
+        ui.spellArmed = false;
+        sfx('click');
+        refreshCards();
+      });
+      cardsEl.insertBefore(btn, spellBtn);
+      cardEls[type] = btn;
+    }
+    return Object.keys(cardEls).length + 1;
   }
 
   const spellBtn = document.createElement('button');
@@ -112,7 +120,7 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
       return;
     }
     if (game.army[ui.selected] <= 0) {
-      const next = Object.keys(UNITS).find(k => game.army[k] > 0);
+      const next = Object.keys(game.army).find(k => game.army[k] > 0);
       if (!next) return;
       ui.selected = next;
     }
@@ -193,24 +201,17 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
   }
 
   return {
-    enter({ army, level, flavors = {}, layout, lootScale = 1, name, mode, spawnPlan, bugStrength, area }) {
+    enter({ army, level, flavors = {}, layout, lootScale = 1, name, mode, spawnPlan, bugStrength, area, unitDefs }) {
       const defense = mode === 'defense';
       document.querySelector('#app').dataset.mode = defense ? 'defense' : 'raid';
       renderer.setScene(defense ? 'defense' : 'raid', area);
       game = defense
         ? new Raid({ mode, unitDefs: BUGS, core: 'stem', layout, spawnPlan, bugStrength })
-        : new Raid({ army, level, flavors, layout, lootScale });
+        : new Raid({ army, level, flavors, layout, lootScale, unitDefs });
       this.mode = defense ? 'defense' : 'raid';
-      let shown = 1;
-      for (const [type, el] of Object.entries(cardEls)) {
-        el.hidden = !game.army[type];
-        if (!el.hidden) shown++;
-        const f = flavors[type];
-        el.querySelector('.flav').textContent = f ? FLAVORS[f].icon : '';
-        el.querySelector('.flav').title = f ? FLAVORS[f].name : '';
-      }
+      const shown = buildCards(game.defs, game.army, flavors);
       window.raid = game; // handy for debugging in the console
-      ui.selected = Object.keys(UNITS).find(k => game.army[k] > 0) || 'jalapeno';
+      ui.selected = Object.keys(game.army).find(k => game.army[k] > 0) || 'jalapeno';
       cardsEl.style.setProperty('--cards', shown);
       cardsEl.classList.toggle('many', shown > 4);
       ui.spellArmed = false;

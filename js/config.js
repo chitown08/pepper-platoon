@@ -47,6 +47,7 @@ export const BUILDINGS = {
   wall:    { name: 'Twig & Pebble Wall', size: 1, hp: 700 },
   // your garden, when bugs attack it
   stem:    { name: 'The Stem', size: 3, hp: 4000 },
+  greenhouse: { name: 'Greenhouse', size: 2, hp: 600 },
   leaf:    { name: 'Leaf', size: 2, hp: 400 },
   root:    { name: 'Root', size: 2, hp: 400 },
   blossom: { name: 'Blossom', size: 2, hp: 500 },
@@ -263,10 +264,10 @@ export const TROOPS = {
 // cost = Sunlight to reach that level.
 export const STEM_LEVELS = [
   null,
-  { cost: 0,     area: 9,  cap: { sun: 3000,  water: 3000 },  limits: { leaf: 2, root: 2, blossom: 1, lab: 1, thorn: 1, sap: 0, spore: 2, hedge: 12 } },
-  { cost: 2000,  area: 11, cap: { sun: 8000,  water: 8000 },  limits: { leaf: 3, root: 3, blossom: 2, lab: 1, thorn: 2, sap: 1, spore: 3, hedge: 20 } },
-  { cost: 6000,  area: 13, cap: { sun: 20000, water: 20000 }, limits: { leaf: 4, root: 4, blossom: 3, lab: 1, thorn: 3, sap: 2, spore: 4, hedge: 30 } },
-  { cost: 15000, area: 15, cap: { sun: 45000, water: 45000 }, limits: { leaf: 5, root: 5, blossom: 4, lab: 1, thorn: 4, sap: 2, spore: 5, hedge: 40 } },
+  { cost: 0,     area: 9,  cap: { sun: 3000,  water: 3000 },  limits: { leaf: 2, root: 2, blossom: 1, lab: 1, greenhouse: 0, thorn: 1, sap: 0, spore: 2, hedge: 12 } },
+  { cost: 2000,  area: 11, cap: { sun: 8000,  water: 8000 },  limits: { leaf: 3, root: 3, blossom: 2, lab: 1, greenhouse: 1, thorn: 2, sap: 1, spore: 3, hedge: 20 } },
+  { cost: 6000,  area: 13, cap: { sun: 20000, water: 20000 }, limits: { leaf: 4, root: 4, blossom: 3, lab: 1, greenhouse: 1, thorn: 3, sap: 2, spore: 4, hedge: 30 } },
+  { cost: 15000, area: 15, cap: { sun: 45000, water: 45000 }, limits: { leaf: 5, root: 5, blossom: 4, lab: 1, greenhouse: 1, thorn: 4, sap: 2, spore: 5, hedge: 40 } },
 ];
 
 // Garden structures. Arrays are indexed by level (index 0 unused).
@@ -292,6 +293,10 @@ export const PLANTS = {
   lab: {
     name: 'Flavor Lab', size: 2, blurb: 'Brew flavors that change how your troops fight.',
     cost: [0, 400],
+  },
+  greenhouse: {
+    name: 'Greenhouse', size: 2, blurb: 'Cross-breed peppers into brand-new hybrid troops.',
+    cost: [0, 1500],
   },
   // ----- defenses -----
   thorn: {
@@ -382,4 +387,26 @@ export const DEFENSE = {
   lossShare: 0.25,                           // share of stored Sunlight & Water the bugs carry off
   shieldHours: 6,                            // "Wilted" protection after a loss
   nextHours: [2, 3],                         // hours until the next swarm after a defense
+};
+
+// ---------- The Greenhouse (cross-breeding) ----------
+// Parent A (Body) gives health, speed and size. Parent B (Seed) gives attack, damage and targeting.
+export const GREENHOUSE = {
+  maxStrains: 6,
+  breedable: ['jalapeno', 'habanero', 'bell', 'ghost'],     // base species you can use as parents
+  tag:  { jalapeno: 'Snap', habanero: 'Boom', bell: 'Shield', ghost: 'Ghost' },  // name from the Seed parent
+  body: { jalapeno: 'Jalapeño', habanero: 'Habanero', bell: 'Bell', ghost: 'Ghost' }, // name from the Body parent
+  tint: { jalapeno: '#3fa34d', habanero: '#ff8a1c', bell: '#e23b2e', ghost: '#cfc4f0' },
+  chance: [0.55, 0.4, 0.3],      // success chance by the older parent's generation (0 = base species)
+  stabilizer: 0.35,              // added by mixing in an unlocked flavor
+  water: [300, 600, 900],        // breeding cost by generation
+  seeds: [1, 2, 3],
+  hpMult: 0.8, dmgMult: 0.85,    // hybrids trade a little raw power for flexibility
+  wobble: [[0.95, 1.05], [0.85, 1.2], [0.75, 1.3]], // random stat swing by generation
+  duds: {
+    wrinkle: { name: 'Wrinkle-Pepper', text: 'Sad, shriveled, harmless. Turrets stop to stare in pity.' },
+    potato:  { name: 'Couch Potato', text: 'Deeply confused. Turrets stop to stare in pity.' },
+  },
+  pity: [0.5, 1.5],              // seconds turrets near a fresh Dud stop firing
+  pityRange: 5,
 };

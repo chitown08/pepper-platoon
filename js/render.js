@@ -172,15 +172,84 @@ const UNIT_ART = {
   aphid: (c, f) => drawAphidBug(c, f), beetle: (c, f) => drawBeetleBug(c, f), wasp: (c, f) => drawWaspBug(c, f),
 };
 
-export function drawUnitIcon(canvas, type) {
+export function drawUnitIcon(canvas, type, def) {
   const c = canvas.getContext('2d');
   const s = canvas.width;
   c.clearRect(0, 0, s, s);
   c.save();
   c.translate(s / 2, s * 0.55);
   c.scale(s * 0.75, s * 0.75);
-  UNIT_ART[type](c, false);
+  drawTroopArt(c, type, def, false);
   c.restore();
+}
+
+// ---------- Greenhouse hybrids & Duds ----------
+
+export function drawWrinkleArt(c, flash) {
+  c.beginPath();
+  c.moveTo(-0.15, -0.3);
+  c.bezierCurveTo(0.2, -0.36, 0.28, 0.0, 0.12, 0.22);
+  c.quadraticCurveTo(0.2, 0.32, 0.02, 0.38);
+  c.bezierCurveTo(-0.22, 0.3, -0.3, -0.12, -0.15, -0.3);
+  c.fillStyle = flash ? '#fff' : '#7d7a3e'; c.fill();
+  c.strokeStyle = '#4a4720'; c.lineWidth = 0.03; c.stroke();
+  c.strokeStyle = 'rgba(60,55,20,0.55)'; c.lineWidth = 0.02;
+  for (let i = 0; i < 6; i++) { const y = -0.22 + i * 0.1; c.beginPath(); c.moveTo(-0.18, y); c.quadraticCurveTo(0, y + 0.04 * (i % 2 ? 1 : -1), 0.17, y); c.stroke(); }
+  c.beginPath(); c.ellipse(-0.02, -0.33, 0.12, 0.04, -0.3, 0, Math.PI * 2); c.fillStyle = '#6a6a3a'; c.fill();
+  // droopy, teary eyes
+  for (const s of [-1, 1]) {
+    ellipse(c, s * 0.08, -0.1, 0.045, 0.035, '#fff');
+    ellipse(c, s * 0.08, -0.09, 0.02, 0.02, '#111');
+    c.beginPath(); c.moveTo(s * 0.03, -0.17); c.lineTo(s * 0.13, -0.14); c.lineWidth = 0.025; c.strokeStyle = '#333'; c.stroke();
+  }
+  ellipse(c, 0.11, -0.03, 0.02, 0.035, '#8fd3ff');
+  c.beginPath(); c.arc(0, 0.06, 0.06, 1.15 * Math.PI, 1.85 * Math.PI); c.lineWidth = 0.025; c.strokeStyle = '#333'; c.stroke();
+}
+
+export function drawPotatoArt(c, flash) {
+  ellipse(c, 0, 0.12, 0.34, 0.24, flash ? '#fff' : '#b88a55');
+  c.strokeStyle = '#7a5530'; c.lineWidth = 0.03;
+  c.beginPath(); c.ellipse(0, 0.12, 0.34, 0.24, 0, 0, Math.PI * 2); c.stroke();
+  for (const [x, y] of [[-0.18, 0.2], [0.2, 0.05], [0.05, 0.28], [-0.05, -0.02]]) ellipse(c, x, y, 0.025, 0.018, '#7a5530');
+  // confused face
+  ellipse(c, -0.09, 0.06, 0.05, 0.05, '#fff'); ellipse(c, 0.1, 0.08, 0.04, 0.04, '#fff');
+  ellipse(c, -0.08, 0.07, 0.02, 0.02, '#111'); ellipse(c, 0.11, 0.07, 0.018, 0.018, '#111');
+  c.beginPath(); c.moveTo(-0.05, 0.19); c.quadraticCurveTo(0.0, 0.16, 0.05, 0.2); c.quadraticCurveTo(0.08, 0.22, 0.1, 0.18); c.lineWidth = 0.025; c.strokeStyle = '#333'; c.stroke();
+  c.font = 'bold 0.16px sans-serif'; c.fillStyle = '#555'; c.fillText('?', 0.18, -0.12);
+}
+
+const spriteCache = new Map();
+// Hybrids look like their Body parent, washed with their Seed parent's color.
+function hybridSprite(d, flash) {
+  const key = `${d.id}:${d.body}:${d.tint}:${flash ? 1 : 0}`;
+  let cv = spriteCache.get(key);
+  if (cv) return cv;
+  cv = document.createElement('canvas');
+  cv.width = cv.height = 128;
+  const c = cv.getContext('2d');
+  c.translate(64, 72); c.scale(80, 80);
+  (UNIT_ART[d.body] || drawJalapenoArt)(c, flash);
+  if (!flash) {
+    c.globalCompositeOperation = 'source-atop';
+    c.globalAlpha = 0.42; c.fillStyle = d.tint; c.fillRect(-1, -1, 2, 2);
+    c.globalAlpha = 1; c.globalCompositeOperation = 'source-over';
+    // a little double-helix sparkle so hybrids stand out
+    c.strokeStyle = 'rgba(255,255,255,0.85)'; c.lineWidth = 0.025;
+    for (let i = 0; i < 2; i++) {
+      c.beginPath();
+      for (let k = 0; k <= 12; k++) { const y = 0.12 + k * 0.02, x = -0.22 + Math.sin(k * 0.8 + i * Math.PI) * 0.05; k ? c.lineTo(x, y) : c.moveTo(x, y); }
+      c.stroke();
+    }
+  }
+  spriteCache.set(key, cv);
+  return cv;
+}
+
+// Draws any troop at the origin (about one unit tall), base species, hybrid or Dud.
+export function drawTroopArt(c, type, d, flash) {
+  if (d && d.dud) { (d.dud === 'potato' ? drawPotatoArt : drawWrinkleArt)(c, flash); return; }
+  if (d && d.hybrid) { c.drawImage(hybridSprite(d, flash), -0.8, -0.9, 1.6, 1.6); return; }
+  UNIT_ART[type](c, flash);
 }
 
 export function drawSpellIcon(canvas) {
@@ -468,6 +537,7 @@ const BUILDING_ART = {
   root: (c, b, t) => PLANT_ART.root(c, b.x, b.y, b.level, t),
   blossom: (c, b, t) => PLANT_ART.blossom(c, b.x, b.y, b.level, t, 0, 0),
   lab: (c, b, t) => PLANT_ART.lab(c, b.x, b.y, b.level, t),
+  greenhouse: (c, b, t) => PLANT_ART.greenhouse(c, b.x, b.y, b.level, t),
 };
 
 // Lets the Garden draw Thorn Shooters and Sap Sprayers with the battle art.
@@ -557,7 +627,7 @@ function drawUnit(c, u, t) {
   const lunge = u.atkAnim > 0 ? Math.sin((u.atkAnim / 0.18) * Math.PI) * 0.15 : 0;
   c.translate(u.x + lunge * u.face, u.y - s * 0.5 - bob);
   c.scale(s * u.face, s);
-  UNIT_ART[u.type](c, u.hitT > 0);
+  drawTroopArt(c, u.type, u.d, u.hitT > 0);
   c.restore();
   if (u.slowT > 0) {
     ellipse(c, u.x, u.y - s * 0.2, u.d.radius * 0.9, u.d.radius * 0.5, 'rgba(240,170,40,0.5)');

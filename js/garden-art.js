@@ -242,7 +242,32 @@ export function drawLab(c, x, y, level, t, bounce = 0) {
   c.globalAlpha = 1;
 }
 
-export const PLANT_ART = { leaf: drawLeaf, root: drawRoot, blossom: drawBlossom, lab: drawLab };
+// ---------- Greenhouse: a little glass house full of seedlings ----------
+export function drawGreenhouse(c, x, y, level, t, bounce = 0) {
+  const cx = x + 1, base = y + 1.75;
+  ellipse(c, cx, base + 0.1, 1.0, 0.25, 'rgba(0,0,0,0.22)');
+  c.save(); c.translate(cx, base); c.scale(1 + bounce * 0.1, 1 - bounce * 0.08);
+  // frame + glass
+  c.fillStyle = 'rgba(200,240,255,0.55)';
+  c.beginPath(); c.moveTo(-0.85, 0); c.lineTo(-0.85, -0.85); c.lineTo(0, -1.45); c.lineTo(0.85, -0.85); c.lineTo(0.85, 0); c.closePath(); c.fill();
+  // seedlings inside
+  for (let i = 0; i < 5; i++) {
+    const px = -0.6 + i * 0.3, sway = Math.sin(t * 2 + i) * 0.04;
+    c.fillStyle = '#6b4528'; c.fillRect(px - 0.09, -0.2, 0.18, 0.2);
+    c.fillStyle = ['#3fa34d', '#ff8a1c', '#e23b2e', '#cfc4f0', '#3fa34d'][i];
+    c.beginPath(); c.ellipse(px + sway, -0.33, 0.07, 0.13, sway, 0, Math.PI * 2); c.fill();
+  }
+  c.strokeStyle = '#e8e8e8'; c.lineWidth = 0.06; c.lineJoin = 'round';
+  c.beginPath(); c.moveTo(-0.85, 0); c.lineTo(-0.85, -0.85); c.lineTo(0, -1.45); c.lineTo(0.85, -0.85); c.lineTo(0.85, 0); c.closePath(); c.stroke();
+  c.lineWidth = 0.035;
+  c.beginPath(); c.moveTo(0, -1.45); c.lineTo(0, 0); c.moveTo(-0.85, -0.85); c.lineTo(0.85, -0.85); c.moveTo(-0.42, -1.15); c.lineTo(-0.42, 0); c.moveTo(0.42, -1.15); c.lineTo(0.42, 0); c.stroke();
+  // glint
+  c.strokeStyle = 'rgba(255,255,255,0.8)'; c.lineWidth = 0.05;
+  c.beginPath(); c.moveTo(-0.7, -0.75); c.lineTo(-0.5, -0.95); c.stroke();
+  c.restore();
+}
+
+export const PLANT_ART = { leaf: drawLeaf, root: drawRoot, blossom: drawBlossom, lab: drawLab, greenhouse: drawGreenhouse };
 
 // ---------- bubbles & badges ----------
 
