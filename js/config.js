@@ -295,4 +295,29 @@ export const FLAVORS = {
               text: 'Tear Gas: hit turrets miss half their shots for 3 seconds.' },
   smoked:   { name: 'Chipotle', icon: '🔥', color: '#8b4a2b', seeds: 4, best: 'Bell Pepper',
               text: 'Smoked & Cured: +35% health, ignores sap slow, half damage from Spicy Spores.' },
+  // Rare: only found at the bottom of Root Roulette
+  truffle:  { name: 'Truffle',  icon: '🍄', color: '#7a5a3a', seeds: null, rare: true, best: 'Jalapeño',
+              text: 'Earthy Fortune: buildings it finishes off drop 50% more loot.' },
+  saffron:  { name: 'Saffron',  icon: '🌺', color: '#e8452c', seeds: null, rare: true, best: 'Habanero',
+              text: 'Golden Threads: attacks 35% faster.' },
 };
+
+// ---------- Root Roulette (daily underground puzzle) ----------
+export const DIG = {
+  fee: 100,          // Water to start the day's Deep Tap
+  time: 60,          // seconds of Sap Pressure before the root bursts
+  cols: 7, rows: 9,
+  bedrock: 0.18,     // share of spare tiles that are solid rock
+  mycoBonus: 0.25,   // each glowing fungus tile in your root network adds this to rewards
+  grubEvery: [7, 10],// seconds between Burrowing Grubs
+  grubFuse: 2.5,     // seconds before a grub scrambles the roots around it
+  boostHours: 4,     // Photosynthesis Overdrive length
+};
+// Nutrient pockets, shallow to deep. rows = depth band the pocket can appear in.
+export const POCKETS = [
+  { kind: 'aquifer', rows: [2, 3], name: 'Aquifer' },
+  { kind: 'geode',   rows: [4, 5], name: 'Seed Geode' },
+  { kind: 'deep',    rows: [5, 6], name: 'Deep Aquifer' },
+  { kind: 'geyser',  rows: [6, 7], name: 'Fertilizer Geyser' },
+  { kind: 'rare',    rows: [8, 8], name: 'Ancient Ingredient' },
+];

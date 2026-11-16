@@ -14,6 +14,8 @@ A mobile-first web strategy game: grow a sentient pepper plant, then lead platoo
 
 **The Garden Map**: a backyard of nine Bug Hives (Sandbox, Garden Hose, Birdbath, Tool Shed, Patio, Barbecue, Doghouse, Koi Pond, Greenhouse Ruins), each with its own layout and level. Destroy a hive's Compost Bin to conquer it and lift the fog off the next one. Conquered hives can be re-raided for half loot.
 
+**Root Roulette**: once a day, Dig under your plant (💧100). Tap root pieces to rotate them and connect the taproot to nutrient pockets before the 60-second Sap Pressure bursts: Aquifers (Water), Seed Geodes (Spice Seeds), a Fertilizer Geyser (Photosynthesis Overdrive: double Sunlight for 4 hours), and on the bottom row an Ancient Ingredient that unlocks the rare **Truffle** (bonus loot) or **Saffron** (faster attacks) flavor. Glowing fungus tiles in your root network multiply rewards; tap Burrowing Grubs before they scramble your roots. Every puzzle is generated to be solvable.
+
 **Sauce Raids**: attack a Bug Hive with the troops you've grown.
 - **Troops:** Jalapeño (swarm infantry), Bell Pepper (tank that taunts turrets and deals no damage), Habanero (grenadier that lobs over walls)
 - **Bug defenses:** Thorn Shooter (rapid single target), Sap Sprayer (slowing goo aimed at clumps), hidden Spicy Spore traps, Twig & Pebble Walls
@@ -46,6 +48,7 @@ Then open http://localhost:8000.
 | `js/garden.js`, `js/garden-art.js` | The Garden screen, its menus and art |
 | `js/raid-scene.js` | Raid screen controls, HUD and results |
 | `js/map.js` | The Garden Map screen |
+| `js/roulette.js` | Root Roulette: puzzle generator, flow logic and screen |
 | `tools/sim.js` | Headless raid balance tester. Run `npm run sim` (needs Node.js). |
 | `tools/progression.js` | Simulates every map hive against a typical army for that stage |
 

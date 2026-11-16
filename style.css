@@ -263,7 +263,12 @@ html, body {
 #app[data-scene="map"] .garden-only,
 #app[data-scene="raid"] .garden-only,
 #app[data-scene="raid"] .map-only,
-#app[data-scene="raid"] .home-ui { display: none !important; }
+#app[data-scene="raid"] .home-ui,
+#app[data-scene="roulette"] .raid-only,
+#app[data-scene="roulette"] .garden-only,
+#app[data-scene="roulette"] .map-only,
+#app[data-scene="roulette"] .home-ui,
+#app:not([data-scene="roulette"]) .roulette-only { display: none !important; }
 
 /* ---------- garden HUD ---------- */
 
@@ -298,7 +303,7 @@ html, body {
 
 #gbar {
   display: grid;
-  grid-template-columns: 1fr 1fr 1.2fr;
+  grid-template-columns: 1fr 1fr 1fr 1.15fr;
   gap: 8px;
   padding: 8px 8px 10px;
   background: linear-gradient(var(--soil), #1f150e);
@@ -491,3 +496,39 @@ html, body {
 .sbtn.danger b { font-size: 19px; }
 .stars-inline { color: #e0a800; letter-spacing: 1px; }
 .stars-inline em { font-style: normal; color: #c9b48a; }
+
+/* ---------- Root Roulette ---------- */
+
+#rhud {
+  padding: 8px 12px 10px;
+  background: linear-gradient(var(--soil-2), var(--soil));
+  border-bottom: 3px solid #1a110b;
+}
+.rh-top { display: grid; grid-template-columns: 1fr 1fr 1fr; align-items: end; }
+.rh-top > div { display: flex; flex-direction: column; }
+.rh-top .center { align-items: center; }
+.rh-top .right { align-items: flex-end; }
+.rh-top b { font: 22px 'Lilita One', sans-serif; line-height: 1; font-variant-numeric: tabular-nums; }
+#dig-time.low { color: #ff5a4a; animation: pulse 0.6s infinite; }
+#dig-pressure { margin-top: 6px; height: 12px; border-radius: 6px; background: #1a110b; overflow: hidden; }
+#dig-pressure i { display: block; height: 100%; width: 0; background: linear-gradient(90deg, #7ee05a, #ffd23f, #ff4b1f); }
+#rbar {
+  display: flex; align-items: center; gap: 10px;
+  padding: 8px 10px 10px;
+  background: linear-gradient(var(--soil), #1f150e);
+  border-top: 3px solid #1a110b;
+}
+#rbar p { flex: 1; min-width: 0; margin: 0; font-size: 12px; font-weight: 900; opacity: 0.8; }
+#rbar .gbtn { flex: none; width: 42%; }
+.dig-loot { list-style: none; padding: 0; margin: 12px 0 18px; text-align: left; display: flex; flex-direction: column; gap: 6px; }
+.dig-loot li { display: flex; align-items: center; gap: 10px; padding: 8px 10px; border-radius: 10px; background: #e9d5a6; font-weight: 900; font-size: 14px; }
+.dig-loot li span { font-size: 22px; }
+.gbtn .dot { display: inline-block; width: 8px; height: 8px; margin-left: 4px; border-radius: 50%; background: #e8452c; vertical-align: middle; animation: pulse 1s infinite; }
+.res.sun { position: relative; }
+.res .boost { position: absolute; top: -7px; right: 4px; padding: 1px 5px; box-shadow: 0 1px 0 #1a110b; border-radius: 6px; background: #ffd23f; color: #3a2614; font: 11px 'Lilita One', sans-serif; white-space: nowrap; }
+.frow .rare-tag { flex: none; padding: 6px 8px; border-radius: 10px; background: #3a2614; color: #ffd28a; font: 12px 'Lilita One', sans-serif; text-align: center; width: 76px; }
+
+@media (max-width: 400px) {
+  .gbtn b { font-size: 16px; }
+  .gbtn small { font-size: 10px; }
+}

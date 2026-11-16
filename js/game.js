@@ -235,7 +235,7 @@ export class Raid {
     if (Math.abs(b.cx - u.x) > 0.05) u.face = b.cx > u.x ? 1 : -1;
     u.cool -= dt;
     if (u.cool > 0) return;
-    u.cool = u.d.atkInterval * (slowed ? 1.6 : 1);
+    u.cool = u.d.atkInterval * (slowed ? 1.6 : 1) * (u.flavor === 'saffron' ? 0.65 : 1);
     if (u.d.dmg <= 0) return;
     u.atkAnim = 0.18;
     if (u.d.ranged) {
@@ -252,6 +252,7 @@ export class Raid {
 
   // A troop's hit on a building, with its flavor's effect.
   flavorHit(b, dmg, flavor) {
+    b.lastFlavor = flavor;
     if (flavor === 'salt') dmg *= 1 + 1.2 * (1 - b.hp / b.maxHp);
     if (flavor === 'lime' && (b.type === 'wall' || b.def.attack)) dmg *= 2;
     this.damageBuilding(b, dmg);
@@ -319,6 +320,10 @@ export class Raid {
     this.heat = Math.min(HEAT.max, this.heat + HEAT.perBuilding);
     this.floatText(b.cx, b.y, `+${HEAT.perBuilding} Heat`, '#ff7a1a');
     if (b.loot) {
+      if (b.lastFlavor === 'truffle') {
+        b.loot = { sun: Math.round(b.loot.sun * 1.5), water: Math.round(b.loot.water * 1.5) };
+        this.floatText(b.cx, b.cy - 0.6, 'Truffle bonus!', '#d9b38c');
+      }
       this.loot.sun += b.loot.sun;
       this.loot.water += b.loot.water;
       if (b.loot.sun) this.floatText(b.cx - 0.6, b.cy, `+${b.loot.sun}☀️`, '#ffd23f');

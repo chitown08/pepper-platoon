@@ -53,6 +53,16 @@
       </div>
     </header>
 
+    <!-- Root Roulette HUD -->
+    <header id="rhud" class="roulette-only">
+      <div class="rh-top">
+        <div><span class="label">Sap Pressure</span><b id="dig-time">60s</b></div>
+        <div class="center"><span class="label">Pockets</span><b id="dig-got">0 / 5</b></div>
+        <div class="right"><span class="label">Fungus bonus</span><b id="dig-mult">×1</b></div>
+      </div>
+      <div id="dig-pressure"><i></i></div>
+    </header>
+
     <main id="stage">
       <canvas id="game"></canvas>
       <div id="banner" class="raid-only">
@@ -66,6 +76,7 @@
     <footer id="gbar" class="garden-only">
       <button id="g-build" class="gbtn"><b>Plant</b><small>Build &amp; grow</small></button>
       <button id="g-army" class="gbtn"><b>Platoon</b><small id="g-army-sub">0 / 0</small></button>
+      <button id="g-dig" class="gbtn"><b>Dig</b><small id="g-dig-sub">Root Roulette</small></button>
       <button id="g-raid" class="gbtn raid"><b>Raid!</b><small id="g-raid-sub">Garden Map</small></button>
     </footer>
     <footer id="mbar" class="map-only">
@@ -73,6 +84,10 @@
       <div class="mstat"><b id="m-progress">0 / 9 hives conquered</b><small id="m-army">0 troops ready</small></div>
     </footer>
     <footer id="cards" class="raid-only"></footer>
+    <footer id="rbar" class="roulette-only">
+      <p>Tap roots to turn them. Connect the taproot to pockets. Squish grubs before they scramble you!</p>
+      <button id="dig-cash" class="gbtn"><b>Cash Out</b><small>Keep what you've tapped</small></button>
+    </footer>
   </div>
 
   <div id="results" class="overlay hidden">
@@ -83,6 +98,15 @@
       <div id="res-loot"></div>
       <p id="res-tip" class="tip"></p>
       <button id="back-garden" class="big-btn">Back to the Map</button>
+    </div>
+  </div>
+
+  <div id="dig-results" class="overlay hidden">
+    <div class="panel">
+      <h2 id="dig-title">Deep Tap Complete</h2>
+      <p id="dig-sub" class="sub"></p>
+      <ul id="dig-loot" class="dig-loot"></ul>
+      <button id="dig-done" class="big-btn">Back to the Garden</button>
     </div>
   </div>
 
@@ -97,6 +121,7 @@
           <li><b>Blossoms</b> house your platoon. Tap <b>Platoon</b> to grow troops.</li>
           <li>Grow your <b>Stem</b> for a bigger plot, more storage and more buildings.</li>
           <li>Plant a <b>Flavor Lab</b> and spend 🌱 Spice Seeds (earned from raid stars) on flavors that power up your troops.</li>
+          <li>Once a day, <b>Dig</b> into <b>Root Roulette</b>: turn root pieces to tap underground pockets of Water, Spice Seeds, sunlight boosts and rare flavors.</li>
           <li>Hit <b>Raid!</b> to open the <b>Garden Map</b>. Destroy a hive's Compost Bin to conquer it and lift the fog off the next one.</li>
         </ul>
       </div>

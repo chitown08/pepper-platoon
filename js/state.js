@@ -1,6 +1,6 @@
 // Player progress: garden layout, resources, army. Saved to this device's browser storage.
 
-import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST, MAP_NODES, LAYOUTS, BUILDINGS, HIVE, REPEAT_LOOT, parseLayout } from './config.js';
+import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST, MAP_NODES, LAYOUTS, BUILDINGS, HIVE, REPEAT_LOOT, parseLayout, DIG } from './config.js';
 
 const SAVE_KEY = 'pepper-platoon-save-v2';
 let nextId = 1;
@@ -23,16 +23,29 @@ export function newPlayer() {
     seenHelp: false,
     flavors: { unlocked: [], infused: {} },
     map: { conquered: [], best: {} },
+    roulette: { lastDay: null },
+    boosts: {},
   };
 }
 
+// The current player's boosts, so stored() can see Photosynthesis Overdrive.
+let boostRef = {};
+
 export function load() {
+  const p = loadRaw();
+  boostRef = p.boosts;
+  return p;
+}
+
+function loadRaw() {
   try {
     const raw = localStorage.getItem(SAVE_KEY);
     if (raw) {
       const p = JSON.parse(raw);
       if (p && p.version === 1) {
         p.flavors = p.flavors || { unlocked: [], infused: {} };
+        p.roulette = p.roulette || { lastDay: null };
+        p.boosts = p.boosts || {};
         if (!p.map) {
           // older saves tracked a single hive level
           p.map = { conquered: [], best: {} };
@@ -80,7 +93,13 @@ export function housingUsed(p) {
 export function stored(q, now = Date.now()) {
   const d = PLANTS[q.type];
   if (!d.makes) return 0;
-  const mins = Math.max(0, now - q.since) / 60000;
+  let mins = Math.max(0, now - q.since) / 60000;
+  const b = boostRef.sun;
+  if (q.type === 'leaf' && b) {
+    // Photosynthesis Overdrive: time inside the boost window counts double
+    const from = Math.max(q.since, b.from), to = Math.min(now, b.until);
+    if (to > from) mins += (to - from) / 60000;
+  }
   return Math.min(d.store[q.level], Math.floor(mins * d.rate[q.level]));
 }
 
@@ -216,6 +235,7 @@ export const hasLab = (p) => p.plants.some(q => q.type === 'lab');
 
 export function canUnlockFlavor(p, f) {
   if (p.flavors.unlocked.includes(f)) return 'Already unlocked';
+  if (FLAVORS[f].rare) return 'Only found deep in Root Roulette';
   if (p.seeds < FLAVORS[f].seeds) return 'Not enough Spice Seeds. Earn them with raid stars';
   return null;
 }
@@ -279,3 +299,59 @@ export function recordRaid(p, i, stars) {
 }
 
 export const conqueredCount = (p) => p.map.conquered.length;
+
+// ---------- Root Roulette ----------
+
+export const today = () => new Date().toLocaleDateString('en-CA'); // YYYY-MM-DD, local time
+
+export const digReady = (p) => p.roulette.lastDay !== today();
+
+export function canDig(p) {
+  if (!digReady(p)) return 'The roots need rest. Come back tomorrow!';
+  if (p.water < DIG.fee) return `Not enough Water (need ${DIG.fee})`;
+  return null;
+}
+
+export function startDig(p) {
+  const err = canDig(p);
+  if (err) return err;
+  p.water -= DIG.fee;
+  p.roulette.lastDay = today();
+  return null;
+}
+
+export function sunBoost(p, now = Date.now()) {
+  const b = p.boosts.sun;
+  return b && b.until > now ? b : null;
+}
+
+// Pays out the pockets tapped in a dig. Returns a list of { icon, text } lines.
+export function payDig(p, rewards) {
+  const lines = [];
+  const c = cap(p);
+  for (const r of rewards) {
+    if (r.water) {
+      const got = Math.min(r.water, Math.max(0, c.water - p.water));
+      p.water += got;
+      lines.push({ icon: '💧', text: `${got.toLocaleString()} Water${got < r.water ? ' (storage full)' : ''}` });
+    }
+    if (r.seeds) { p.seeds += r.seeds; lines.push({ icon: '🌱', text: `${r.seeds} Spice Seeds` }); }
+    if (r.boost) {
+      const now = Date.now();
+      const cur = sunBoost(p, now);
+      p.boosts.sun = { from: cur ? cur.from : now, until: (cur ? cur.until : now) + DIG.boostHours * 3600000 };
+      boostRef = p.boosts;
+      lines.push({ icon: '☀️', text: `Photosynthesis Overdrive: Leaves make double Sunlight for ${DIG.boostHours} hours` });
+    }
+    if (r.flavor) {
+      if (!p.flavors.unlocked.includes(r.flavor)) {
+        p.flavors.unlocked.push(r.flavor);
+        lines.push({ icon: FLAVORS[r.flavor].icon, text: `${FLAVORS[r.flavor].name} unlocked in the Flavor Lab!` });
+      } else {
+        p.seeds += 4;
+        lines.push({ icon: '🌱', text: `4 Spice Seeds (you already had ${FLAVORS[r.flavor].name})` });
+      }
+    }
+  }
+  return lines;
+}

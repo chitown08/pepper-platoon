@@ -4,6 +4,7 @@ import * as S from './state.js';
 import { createGarden } from './garden.js';
 import { createRaidScene } from './raid-scene.js';
 import { createMap } from './map.js';
+import { createRoulette } from './roulette.js';
 import { MAP_NODES } from './config.js';
 import { unlockAudio, setMuted, isMuted } from './audio.js';
 
@@ -34,7 +35,12 @@ for (const b of document.querySelectorAll('.mute')) {
 
 // ---------- scenes ----------
 
-const garden = createGarden({ canvas, player, showTip, onRaid: () => go('map') });
+const garden = createGarden({ canvas, player, showTip, onRaid: () => go('map'), onDig: () => {
+  if (S.startDig(player)) return;
+  S.save(player);
+  go('roulette');
+} });
+const roulette = createRoulette({ canvas, player, showTip, onExit: () => go('garden') });
 const map = createMap({ canvas, player, showTip, onRaid: (i) => go('raid', i), onHome: () => go('garden') });
 let raidNode = 0;
 
@@ -58,7 +64,7 @@ let scene = garden;
 function go(name, arg) {
   scene.exit();
   app.dataset.scene = name;
-  scene = { raid, garden, map }[name];
+  scene = { raid, garden, map, roulette }[name];
   if (name === 'raid') {
     raidNode = arg;
     raid.enter({
@@ -66,6 +72,7 @@ function go(name, arg) {
       level: S.nodeLevel(arg), layout: S.nodeLayout(arg), lootScale: S.nodeLootScale(player, arg), name: MAP_NODES[arg].name,
     });
   } else if (name === 'map') map.enter();
+  else if (name === 'roulette') roulette.enter();
   else garden.enter();
   layout();
   showHelp(name, false);
@@ -76,7 +83,7 @@ $('#back-garden').addEventListener('click', () => go('map'));
 // ---------- help ----------
 
 function showHelp(name, force) {
-  if (name === 'map') name = 'garden';
+  if (name === 'map' || name === 'roulette') name = 'garden';
   const key = name === 'raid' ? 'seenRaidHelp' : 'seenHelp';
   if (!force && player[key]) return;
   $('#help-garden').hidden = name !== 'garden';
@@ -130,3 +137,4 @@ showHelp('garden', false);
 requestAnimationFrame(frame);
 
 window.player = player; // handy for debugging in the console
+window.dig = roulette;

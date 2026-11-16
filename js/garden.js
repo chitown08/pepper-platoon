@@ -1,6 +1,6 @@
 // The Garden scene: your Pepper Plant home base.
 
-import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS, FLAVORS, INFUSE_COST } from './config.js';
+import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS, FLAVORS, INFUSE_COST, DIG } from './config.js';
 import * as S from './state.js';
 import { drawStem, PLANT_ART, drawBubble, drawPlantIcon } from './garden-art.js';
 import { drawUnitIcon } from './render.js';
@@ -9,11 +9,12 @@ import { sfx } from './audio.js';
 const $ = (s) => document.querySelector(s);
 const { cols: COLS, rows: ROWS } = GARDEN;
 const RES_ICON = { sun: '☀️', water: '💧' };
+const MAP_COUNT = 9;
 
 function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
 const fmt = (n) => Math.floor(n).toLocaleString();
 
-export function createGarden({ canvas, player, onRaid, showTip }) {
+export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
   const c = canvas.getContext('2d');
   const view = { tile: 20, dpr: 1, S: 20 };
   const bg = document.createElement('canvas');
@@ -247,7 +248,15 @@ export function createGarden({ canvas, player, onRaid, showTip }) {
     seedEl.textContent = fmt(p.seeds);
     sunBar.style.width = Math.min(100, p.sun / cp.sun * 100) + '%';
     waterBar.style.width = Math.min(100, p.water / cp.water * 100) + '%';
-    raidSub.textContent = `${S.conqueredCount(p)} hives conquered`;
+    raidSub.textContent = `Map · ${S.conqueredCount(p)}/${MAP_COUNT}`;
+    $('#g-dig-sub').innerHTML = S.digReady(p) ? `💧 ${DIG.fee}<span class="dot"></span>` : 'Tomorrow';
+    const boost = S.sunBoost(p);
+    let bEl = $('#g-boost');
+    if (boost) {
+      if (!bEl) { bEl = document.createElement('span'); bEl.id = 'g-boost'; bEl.className = 'boost'; sunEl.after(bEl); }
+      const mins = Math.ceil((boost.until - Date.now()) / 60000);
+      bEl.textContent = `×2 ${mins >= 60 ? Math.floor(mins / 60) + 'h ' : ''}${mins % 60}m`;
+    } else if (bEl) bEl.remove();
     $('#g-army-sub').textContent = `${S.housingUsed(p)} / ${S.housingCap(p)}`;
     if (sheet === 'army') refreshArmy();
     if (sheet === 'info') refreshInfoButtons();
@@ -349,7 +358,9 @@ export function createGarden({ canvas, player, onRaid, showTip }) {
     const troops = Object.keys(TROOPS);
     const rows = Object.entries(FLAVORS).map(([f, d]) => {
       const unlocked = p.flavors.unlocked.includes(f);
-      const right = unlocked
+      const right = !unlocked && d.rare
+        ? `<span class="rare-tag">Deep find in Root Roulette</span>`
+        : unlocked
         ? `<span class="tchips">${troops.map(tr => `<button class="tchip ${p.flavors.infused[tr] === f ? 'on' : ''}" data-f="${f}" data-t="${tr}" aria-label="Infuse ${UNITS[tr].name}"><canvas width="64" height="64"></canvas></button>`).join('')}</span>`
         : `<button class="sbtn primary unlock" data-f="${f}"><b>Unlock</b><small>🌱 ${d.seeds}</small></button>`;
       return `<div class="frow ${unlocked ? '' : 'locked'}">
@@ -541,6 +552,12 @@ export function createGarden({ canvas, player, onRaid, showTip }) {
 
   $('#g-build').onclick = () => { place = null; toggle('build', openBuild, '#g-build'); };
   $('#g-army').onclick = () => { place = null; toggle('army', openArmy, '#g-army'); };
+  $('#g-dig').onclick = () => {
+    const err = S.canDig(p);
+    if (err) { sfx('deny'); showTip(err); return; }
+    place = null; selected = null; closeSheet();
+    onDig();
+  };
   $('#g-raid').onclick = () => {
     place = null; selected = null; closeSheet();
     onRaid();
