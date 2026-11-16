@@ -16,7 +16,7 @@
 <body>
   <div id="app" data-scene="garden">
     <!-- Garden HUD -->
-    <header id="ghud" class="garden-only">
+    <header id="ghud" class="home-ui">
       <div class="res sun">
         <span class="ri">☀️</span>
         <div class="rbody"><b id="g-sun">0</b><div class="rbar"><i id="g-sun-bar"></i></div></div>
@@ -59,14 +59,18 @@
         <b>Scouting the Bug Hive</b>
         <span>Tap buildings to inspect · Tap the picnic blanket to deploy and start the raid</span>
       </div>
-      <div id="sheet" class="garden-only hidden"></div>
+      <div id="sheet" class="home-ui hidden"></div>
       <div id="tip"></div>
     </main>
 
     <footer id="gbar" class="garden-only">
       <button id="g-build" class="gbtn"><b>Plant</b><small>Build &amp; grow</small></button>
       <button id="g-army" class="gbtn"><b>Platoon</b><small id="g-army-sub">0 / 0</small></button>
-      <button id="g-raid" class="gbtn raid"><b>Raid!</b><small id="g-raid-sub">Bug Hive Lv 1</small></button>
+      <button id="g-raid" class="gbtn raid"><b>Raid!</b><small id="g-raid-sub">Garden Map</small></button>
+    </footer>
+    <footer id="mbar" class="map-only">
+      <button id="m-home" class="gbtn"><b>Garden</b><small>Back home</small></button>
+      <div class="mstat"><b id="m-progress">0 / 9 hives conquered</b><small id="m-army">0 troops ready</small></div>
     </footer>
     <footer id="cards" class="raid-only"></footer>
   </div>
@@ -78,7 +82,7 @@
       <p id="res-pct"></p>
       <div id="res-loot"></div>
       <p id="res-tip" class="tip"></p>
-      <button id="back-garden" class="big-btn">Back to the Garden</button>
+      <button id="back-garden" class="big-btn">Back to the Map</button>
     </div>
   </div>
 
@@ -93,7 +97,7 @@
           <li><b>Blossoms</b> house your platoon. Tap <b>Platoon</b> to grow troops.</li>
           <li>Grow your <b>Stem</b> for a bigger plot, more storage and more buildings.</li>
           <li>Plant a <b>Flavor Lab</b> and spend 🌱 Spice Seeds (earned from raid stars) on flavors that power up your troops.</li>
-          <li>Hit <b>Raid!</b> to attack a Bug Hive. Destroy its Compost Bin to unlock a tougher hive with better loot.</li>
+          <li>Hit <b>Raid!</b> to open the <b>Garden Map</b>. Destroy a hive's Compost Bin to conquer it and lift the fog off the next one.</li>
         </ul>
       </div>
       <div id="help-raid" hidden>

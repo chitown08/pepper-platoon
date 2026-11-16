@@ -247,7 +247,7 @@ export function createGarden({ canvas, player, onRaid, showTip }) {
     seedEl.textContent = fmt(p.seeds);
     sunBar.style.width = Math.min(100, p.sun / cp.sun * 100) + '%';
     waterBar.style.width = Math.min(100, p.water / cp.water * 100) + '%';
-    raidSub.textContent = `Bug Hive Lv ${p.hiveLevel}`;
+    raidSub.textContent = `${S.conqueredCount(p)} hives conquered`;
     $('#g-army-sub').textContent = `${S.housingUsed(p)} / ${S.housingCap(p)}`;
     if (sheet === 'army') refreshArmy();
     if (sheet === 'info') refreshInfoButtons();
@@ -542,7 +542,6 @@ export function createGarden({ canvas, player, onRaid, showTip }) {
   $('#g-build').onclick = () => { place = null; toggle('build', openBuild, '#g-build'); };
   $('#g-army').onclick = () => { place = null; toggle('army', openArmy, '#g-army'); };
   $('#g-raid').onclick = () => {
-    if (Object.values(p.army).every(n => !n)) { sfx('deny'); showTip('Grow some troops first!'); openArmy(); return; }
     place = null; selected = null; closeSheet();
     onRaid();
   };

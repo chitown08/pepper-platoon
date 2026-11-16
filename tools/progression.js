@@ -1,7 +1,7 @@
-// Checks the difficulty curve: each Bug Hive level vs. the army a player likely has by then.
+// Checks the difficulty curve: each Garden Map hive at its level vs. the army a player likely has by then.
 // Run: node tools/progression.js
 import { Raid } from '../js/game.js';
-import { ROWS, TROOPS } from '../js/config.js';
+import { ROWS, TROOPS, MAP_NODES, LAYOUTS, parseLayout } from '../js/config.js';
 
 function armyFor(housing) {
   const bell = Math.floor(housing / 20);
@@ -23,18 +23,21 @@ function smart(g, t) {
   }
 }
 
-const stages = [[1, 20], [1, 30], [2, 30], [2, 40], [3, 50], [3, 60], [4, 70], [4, 80], [5, 100], [6, 120]];
-for (const [level, housing] of stages) {
+const housingArg = Number(process.argv[2]) || 20; // housing per hive level
+MAP_NODES.forEach((node, i) => {
+  const level = i + 1;
+  const housing = housingArg * level;
   const army = armyFor(housing);
+  const layout = parseLayout(LAYOUTS[node.layout], node.mirror);
   const res = [];
-  for (let r = 0; r < 20; r++) {
-    const g = new Raid({ level, army });
+  for (let r = 0; r < 12; r++) {
+    const g = new Raid({ level, army, layout });
     let t = 0;
     while (g.phase !== 'over' && t < 200) { smart(g, Math.round(t * 100) / 100); g.update(1 / 60); t += 1 / 60; }
     res.push(g);
   }
   const avgStars = res.reduce((a, g) => a + g.stars.filter(Boolean).length, 0) / res.length;
   const binRate = res.filter(g => g.stars[1]).length / res.length;
-  const loot = res.reduce((a, g) => a + g.loot.sun, 0) / res.length;
-  console.log(`hive L${level} vs ${String(housing).padStart(3)} housing ${JSON.stringify(army).padEnd(40)} avg stars ${avgStars.toFixed(2)}  bin destroyed ${(binRate * 100).toFixed(0).padStart(3)}%  avg sun loot ${loot.toFixed(0)}`);
-}
+  const pct = res.reduce((a, g) => a + g.destruction, 0) / res.length;
+  console.log(`${node.name.padEnd(17)} Lv${level} vs ${String(housing).padStart(3)} housing  avg stars ${avgStars.toFixed(2)}  bin ${(binRate * 100).toFixed(0).padStart(3)}%  destroyed ${(pct * 100).toFixed(0)}%`);
+});

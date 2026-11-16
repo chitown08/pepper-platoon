@@ -13,12 +13,13 @@ export class Raid {
   // opts.army: { jalapeno: n, ... } (defaults to the test army)
   // opts.level: Bug Hive level (0 = full-strength test hive)
   // opts.flavors: { jalapeno: 'garlic', ... } infusions from the Flavor Lab
+  // opts.layout: parsed hive layout (defaults to the Sandbox); opts.lootScale: extra loot multiplier
   constructor(opts = {}) { this.opts = opts; this.reset(); }
 
   reset() {
     this.level = this.opts.level || 0;
     this.strength = HIVE.strength(this.level);
-    this.lootMult = HIVE.loot(this.level);
+    this.lootMult = HIVE.loot(this.level) * (this.opts.lootScale ?? 1);
     this.flavors = this.opts.flavors || {};
     this.grid = new Grid(COLS, ROWS);
     this.buildings = [];
@@ -39,9 +40,10 @@ export class Raid {
     this.army = {};
     for (const k in UNITS) this.army[k] = this.opts.army ? (this.opts.army[k] || 0) : UNITS[k].army;
 
-    for (const b of LAYOUT.buildings) this.addBuilding(b.type, b.x, b.y);
-    for (const [x, y] of LAYOUT.walls) this.addBuilding('wall', x, y);
-    for (const [x, y] of LAYOUT.traps) this.traps.push({ x: x + 0.5, y: y + 0.5, state: 'hidden', timer: 0 });
+    const layout = this.opts.layout || LAYOUT;
+    for (const b of layout.buildings) this.addBuilding(b.type, b.x, b.y);
+    for (const [x, y] of layout.walls) this.addBuilding('wall', x, y);
+    for (const [x, y] of layout.traps) this.traps.push({ x: x + 0.5, y: y + 0.5, state: 'hidden', timer: 0 });
 
     this.totalCount = this.buildings.filter(b => b.counts).length;
     this.destroyedCount = 0;

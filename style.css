@@ -258,7 +258,12 @@ html, body {
 /* ---------- scenes ---------- */
 
 #app[data-scene="garden"] .raid-only,
-#app[data-scene="raid"] .garden-only { display: none !important; }
+#app[data-scene="garden"] .map-only,
+#app[data-scene="map"] .raid-only,
+#app[data-scene="map"] .garden-only,
+#app[data-scene="raid"] .garden-only,
+#app[data-scene="raid"] .map-only,
+#app[data-scene="raid"] .home-ui { display: none !important; }
 
 /* ---------- garden HUD ---------- */
 
@@ -463,3 +468,26 @@ html, body {
   .tchip canvas { width: 24px; height: 24px; }
   .frow .bmain small:not(.best) { font-size: 10px; }
 }
+
+/* ---------- Garden Map ---------- */
+
+#mbar {
+  display: grid;
+  grid-template-columns: 1fr 2fr;
+  gap: 8px;
+  padding: 8px 8px 10px;
+  background: linear-gradient(var(--soil), #1f150e);
+  border-top: 3px solid #1a110b;
+}
+.mstat {
+  display: flex; flex-direction: column; justify-content: center;
+  padding: 0 12px;
+  border-radius: 14px;
+  background: #1a110b;
+}
+.mstat b { font: 17px 'Lilita One', sans-serif; }
+.mstat small { font-size: 12px; font-weight: 900; opacity: 0.7; }
+.sbtn.danger { background: linear-gradient(#ff5a3a, var(--red)); color: #fff; text-shadow: 0 1px 0 #0006; }
+.sbtn.danger b { font-size: 19px; }
+.stars-inline { color: #e0a800; letter-spacing: 1px; }
+.stars-inline em { font-style: normal; color: #c9b48a; }

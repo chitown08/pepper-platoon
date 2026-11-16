@@ -44,31 +44,179 @@ export const SPELL = {
 
 export const WALL_PATH_COST = 10;  // how strongly units prefer walking around walls
 
-// The AI Bug Hive layout. x,y = top-left tile.
-const ring = [];
-for (let i = 4; i <= 10; i++) {
-  ring.push([i, 4], [i, 10]);
-  if (i > 4 && i < 10) ring.push([4, i], [10, i]);
+// ---------- Bug Hive layouts ----------
+// Each layout is 15 columns x 18 rows (the picnic blanket adds 3 more rows below).
+//   C Compost Bin (3x3)   T Thorn Shooter (2x2)   S Sap Sprayer (2x2)
+//   A Aphid Farm (2x2)    D Dew Drop Tank (2x2)   N Larva Nursery (2x2)
+//   # wall                * Spicy Spore (hidden)  . empty
+// Fill every tile a building covers with its letter.
+export const LAYOUTS = {
+  sandbox: [
+    '...............',
+    '.AA...SS....AA.',
+    '.AA...SS*...AA.',
+    '...............',
+    '.NN.#######.NN.',
+    '.NN.#.....#.NN.',
+    '....#.CCC.#....',
+    '..TT#.CCC.#TT..',
+    '..TT#.CCC.#TT..',
+    '....#.....#....',
+    '....#######....',
+    '...........*...',
+    '...*..TT..SS...',
+    '......TT..SS...',
+    '.DD.........DD.',
+    '.DD.........DD.',
+    '.......*.......',
+    '...............',
+  ],
+  hose: [
+    '...............',
+    '.AA.....SS..DD.',
+    '.AA.....SS..DD.',
+    '...............',
+    '#########......',
+    '#.......#..TT..',
+    '#..CCC..#..TT..',
+    '#..CCC..#......',
+    '#..CCC..#...NN.',
+    '#.......#...NN.',
+    '###.#####......',
+    '...*.......SS..',
+    '.TT........SS..',
+    '.TT....*.......',
+    '.....NN....AA..',
+    '.....NN....AA..',
+    '..*.........*..',
+    '...............',
+  ],
+  birdbath: [
+    '...............',
+    '.DD...CCC...DD.',
+    '.DD...CCC...DD.',
+    '.....#CCC#.....',
+    '..TT.#...#.TT..',
+    '..TT.##.##.TT..',
+    '...............',
+    '....#######....',
+    '.NN....*....NN.',
+    '.NN.SS...SS.NN.',
+    '....SS...SS....',
+    '...............',
+    '.AA...TT...AA..',
+    '.AA...TT...AA..',
+    '...............',
+    '....*.....*....',
+    '...............',
+    '...............',
+  ],
+  toolshed: [
+    '...............',
+    '..NN...AA...NN.',
+    '..NN...AA...NN.',
+    '...............',
+    '.TT....SS....TT',
+    '.TT....SS....TT',
+    '...............',
+    '.....*CCC*.....',
+    '......CCC......',
+    '.DD...CCC...DD.',
+    '.DD.........DD.',
+    '...............',
+    '...TT.....TT...',
+    '...TT..*..TT...',
+    '...............',
+    '......SS.......',
+    '......SS.......',
+    '...............',
+  ],
+  patio: [
+    '.AA..NN.NN..AA.',
+    '.AA..NN.NN..AA.',
+    '...............',
+    '.DD....SS....DD',
+    '.DD....SS....DD',
+    '...............',
+    '..TT.......TT..',
+    '..TT...*...TT..',
+    '...............',
+    '...#########...',
+    '...#.......#...',
+    '...#.#####.#...',
+    'TT.#.#CCC#.#.TT',
+    'TT.#.#CCC#.#.TT',
+    '...#.#CCC#.#...',
+    '...#.#####.#...',
+    '.*.#.......#.*.',
+    '...#########...',
+  ],
+  barbecue: [
+    '...............',
+    '.NN.SS...SS.NN.',
+    '.NN.SS...SS.NN.',
+    '...............',
+    '######...######',
+    '#....#...#....#',
+    '#.TT.#.*.#CCC.#',
+    '#.TT.#...#CCC.#',
+    '#....#...#CCC.#',
+    '#AA..#...#..DD#',
+    '#AA..#...#..DD#',
+    '###.##...######',
+    '...............',
+    '..TT...*...TT..',
+    '..TT.......TT..',
+    '...............',
+    '....*.....*....',
+    '...............',
+  ],
+};
+
+const LETTERS = { C: 'compost', T: 'thorn', S: 'sap', A: 'aphid', D: 'dew', N: 'nursery' };
+
+// Turns a text layout into { buildings, walls, traps }. mirror flips it left-to-right.
+export function parseLayout(rows, mirror = false) {
+  if (mirror) rows = rows.map(r => [...r].reverse().join(''));
+  if (rows.length !== ROWS - DEPLOY_ROWS) throw new Error(`layout needs ${ROWS - DEPLOY_ROWS} rows`);
+  const used = rows.map(r => {
+    if (r.length !== COLS) throw new Error(`layout row "${r}" must be ${COLS} wide`);
+    return new Array(COLS).fill(false);
+  });
+  const out = { buildings: [], walls: [], traps: [] };
+  rows.forEach((r, y) => [...r].forEach((ch, x) => {
+    if (used[y][x] || ch === '.') return;
+    if (ch === '#') { out.walls.push([x, y]); return; }
+    if (ch === '*') { out.traps.push([x, y]); return; }
+    const type = LETTERS[ch];
+    if (!type) throw new Error(`unknown layout letter "${ch}"`);
+    const n = BUILDINGS[type].size;
+    for (let dy = 0; dy < n; dy++) for (let dx = 0; dx < n; dx++) {
+      if (rows[y + dy]?.[x + dx] !== ch) throw new Error(`${type} at ${x},${y} needs a full ${n}x${n} block of "${ch}"`);
+      used[y + dy][x + dx] = true;
+    }
+    out.buildings.push({ type, x, y });
+  }));
+  return out;
 }
 
-export const LAYOUT = {
-  buildings: [
-    { type: 'compost', x: 6, y: 6 },
-    { type: 'aphid', x: 1, y: 1 },
-    { type: 'sap', x: 6, y: 1 },
-    { type: 'aphid', x: 12, y: 1 },
-    { type: 'nursery', x: 1, y: 4 },
-    { type: 'nursery', x: 12, y: 4 },
-    { type: 'thorn', x: 2, y: 7 },
-    { type: 'thorn', x: 11, y: 7 },
-    { type: 'thorn', x: 6, y: 12 },
-    { type: 'sap', x: 10, y: 12 },
-    { type: 'dew', x: 1, y: 14 },
-    { type: 'dew', x: 12, y: 14 },
-  ],
-  walls: ring,
-  traps: [[7, 16], [3, 12], [11, 11], [8, 2]],
-};
+// The original test hive (used by tools/sim.js).
+export const LAYOUT = parseLayout(LAYOUTS.sandbox);
+
+// ---------- The Garden Map ----------
+// Hives in the order you unlock them. x,y = position on the map screen (in map tiles, 15 x 19).
+export const MAP_NODES = [
+  { name: 'Sandbox',          layout: 'sandbox',  x: 3.5,  y: 15.2 },
+  { name: 'Garden Hose',      layout: 'hose',     x: 10.5, y: 13.8 },
+  { name: 'Birdbath',         layout: 'birdbath', x: 12,   y: 10 },
+  { name: 'Tool Shed',        layout: 'toolshed', x: 7,    y: 9.2 },
+  { name: 'Patio',            layout: 'patio',    x: 2.6,  y: 7 },
+  { name: 'Barbecue',         layout: 'barbecue', x: 7.2,  y: 4.8 },
+  { name: 'Doghouse',         layout: 'hose',     x: 12.4, y: 5.8, mirror: true },
+  { name: 'Koi Pond',         layout: 'barbecue', x: 10.4, y: 1.8, mirror: true },
+  { name: 'Greenhouse Ruins', layout: 'patio',    x: 4,    y: 2,   mirror: true },
+];
+export const REPEAT_LOOT = 0.5; // loot multiplier when re-raiding a conquered hive
 
 // ---------- Bug Hive difficulty by level ----------
 // level 0 = the original full-strength test hive (used by tools/sim.js)

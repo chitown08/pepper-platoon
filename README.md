@@ -12,12 +12,14 @@ A mobile-first web strategy game: grow a sentient pepper plant, then lead platoo
 - The **Flavor Lab** turns 🌱 Spice Seeds (1 per raid star) into flavor recipes. Infuse a troop type with one flavor for 💧 Water: Tomato (healing salsa on death), Garlic (poison), Lime (double damage to walls and turrets), Salt (finisher), Cilantro (dodge), Mango (slows turrets), Onion (turrets miss), Chipotle (tougher, resists sap and spores).
 - Progress is saved in the browser on this device.
 
-**Sauce Raids**: attack an AI **Bug Hive** with the troops you've grown.
+**The Garden Map**: a backyard of nine Bug Hives (Sandbox, Garden Hose, Birdbath, Tool Shed, Patio, Barbecue, Doghouse, Koi Pond, Greenhouse Ruins), each with its own layout and level. Destroy a hive's Compost Bin to conquer it and lift the fog off the next one. Conquered hives can be re-raided for half loot.
+
+**Sauce Raids**: attack a Bug Hive with the troops you've grown.
 - **Troops:** Jalapeño (swarm infantry), Bell Pepper (tank that taunts turrets and deals no damage), Habanero (grenadier that lobs over walls)
 - **Bug defenses:** Thorn Shooter (rapid single target), Sap Sprayer (slowing goo aimed at clumps), hidden Spicy Spore traps, Twig & Pebble Walls
 - **Heat:** builds over time and spikes on kills; spend 50 for a **Hot Sauce Strike** (extra damage to walls)
 - **Stars:** ★ 50% destroyed · ★ Compost Bin destroyed · ★ 100% destroyed
-- Destroying the Compost Bin unlocks a tougher, richer Bug Hive. Deployed troops are used up; the rest come home.
+- Deployed troops are used up; the rest come home.
 
 ## Play it locally
 
@@ -34,7 +36,7 @@ Then open http://localhost:8000.
 | File | What it does |
 |---|---|
 | `index.html`, `style.css` | Page, HUD, cards, menus |
-| `js/config.js` | **All balance numbers, costs and the Bug Hive layout.** Tweak here first. |
+| `js/config.js` | **All balance numbers, costs, and the Bug Hive layouts** (drawn as text grids, so you can design new bases). Tweak here first. |
 | `js/game.js` | Raid simulation: troop AI, defenses, traps, Heat, scoring |
 | `js/grid.js` | Tile grid and pathfinding |
 | `js/render.js` | All the drawing (every sprite is drawn in code, no image files) |
@@ -43,8 +45,9 @@ Then open http://localhost:8000.
 | `js/state.js` | Save data and the economy (harvest, build, upgrade, train) |
 | `js/garden.js`, `js/garden-art.js` | The Garden screen, its menus and art |
 | `js/raid-scene.js` | Raid screen controls, HUD and results |
+| `js/map.js` | The Garden Map screen |
 | `tools/sim.js` | Headless raid balance tester. Run `npm run sim` (needs Node.js). |
-| `tools/progression.js` | Checks each Bug Hive level against a typical army for that stage |
+| `tools/progression.js` | Simulates every map hive against a typical army for that stage |
 
 ## Design decisions so far
 

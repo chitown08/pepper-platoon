@@ -1,6 +1,6 @@
 // Player progress: garden layout, resources, army. Saved to this device's browser storage.
 
-import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST } from './config.js';
+import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST, MAP_NODES, LAYOUTS, BUILDINGS, HIVE, REPEAT_LOOT, parseLayout } from './config.js';
 
 const SAVE_KEY = 'pepper-platoon-save-v2';
 let nextId = 1;
@@ -12,7 +12,6 @@ export function newPlayer() {
     sun: 400,
     water: 300,
     seeds: 0,
-    hiveLevel: 1,
     army: { jalapeno: 8, habanero: 2, bell: 0 },
     stem: { x: 6, y: 8, level: 1 },
     plants: [
@@ -23,6 +22,7 @@ export function newPlayer() {
     raids: 0,
     seenHelp: false,
     flavors: { unlocked: [], infused: {} },
+    map: { conquered: [], best: {} },
   };
 }
 
@@ -33,6 +33,11 @@ export function load() {
       const p = JSON.parse(raw);
       if (p && p.version === 1) {
         p.flavors = p.flavors || { unlocked: [], infused: {} };
+        if (!p.map) {
+          // older saves tracked a single hive level
+          p.map = { conquered: [], best: {} };
+          for (let i = 0; i < Math.min((p.hiveLevel || 1) - 1, MAP_NODES.length); i++) p.map.conquered.push(i);
+        }
         nextId = Math.max(nextId, ...p.plants.map(q => q.id + 1));
         return p;
       }
@@ -232,3 +237,45 @@ export function infuse(p, troop, f) {
   p.flavors.infused[troop] = f;
   return null;
 }
+
+// ---------- Garden Map ----------
+
+// 'conquered' (Compost Bin destroyed at least once), 'open' (next to attack), or 'fog'
+export function nodeStatus(p, i) {
+  if (p.map.conquered.includes(i)) return 'conquered';
+  if (i === 0 || p.map.conquered.includes(i - 1)) return 'open';
+  return 'fog';
+}
+
+export function nodeLevel(i) { return i + 1; }
+
+export function nodeLayout(i) {
+  const n = MAP_NODES[i];
+  return parseLayout(LAYOUTS[n.layout], n.mirror);
+}
+
+export function nodeLootScale(p, i) { return nodeStatus(p, i) === 'conquered' ? REPEAT_LOOT : 1; }
+
+// Total loot on offer if every building is destroyed.
+export function nodeLoot(p, i) {
+  const mult = HIVE.loot(nodeLevel(i)) * nodeLootScale(p, i);
+  const out = { sun: 0, water: 0 };
+  for (const b of nodeLayout(i).buildings) {
+    const l = BUILDINGS[b.type].loot;
+    if (l) { out.sun += Math.round(l.sun * mult); out.water += Math.round(l.water * mult); }
+  }
+  return out;
+}
+
+// Records a finished raid. Returns the index of a newly revealed hive, if any.
+export function recordRaid(p, i, stars) {
+  const n = stars.filter(Boolean).length;
+  p.map.best[i] = Math.max(p.map.best[i] || 0, n);
+  if (stars[1] && !p.map.conquered.includes(i)) {
+    p.map.conquered.push(i);
+    if (i + 1 < MAP_NODES.length) return i + 1;
+  }
+  return null;
+}
+
+export const conqueredCount = (p) => p.map.conquered.length;

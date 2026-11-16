@@ -3,6 +3,8 @@
 import * as S from './state.js';
 import { createGarden } from './garden.js';
 import { createRaidScene } from './raid-scene.js';
+import { createMap } from './map.js';
+import { MAP_NODES } from './config.js';
 import { unlockAudio, setMuted, isMuted } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
@@ -32,7 +34,9 @@ for (const b of document.querySelectorAll('.mute')) {
 
 // ---------- scenes ----------
 
-const garden = createGarden({ canvas, player, showTip, onRaid: () => go('raid') });
+const garden = createGarden({ canvas, player, showTip, onRaid: () => go('map') });
+const map = createMap({ canvas, player, showTip, onRaid: (i) => go('raid', i), onHome: () => go('garden') });
+let raidNode = 0;
 
 const raid = createRaidScene({
   canvas,
@@ -41,7 +45,9 @@ const raid = createRaidScene({
     player.army = result.armyLeft;
     player.raids++;
     const banked = S.addLoot(player, result.loot, result.seeds);
-    if (result.stars[1]) player.hiveLevel = Math.max(player.hiveLevel, result.level + 1);
+    const revealed = S.recordRaid(player, raidNode, result.stars);
+    if (revealed != null) banked.note = `${MAP_NODES[raidNode].name} conquered! The fog lifts over the ${MAP_NODES[revealed].name}.`;
+    else if (result.stars[1] && S.conqueredCount(player) === MAP_NODES.length) banked.note = 'Every hive in the backyard is yours. Re-raid them for loot!';
     S.save(player);
     return banked;
   },
@@ -49,21 +55,28 @@ const raid = createRaidScene({
 
 let scene = garden;
 
-function go(name) {
+function go(name, arg) {
   scene.exit();
   app.dataset.scene = name;
-  scene = name === 'raid' ? raid : garden;
-  if (name === 'raid') raid.enter({ army: { ...player.army }, level: player.hiveLevel, flavors: { ...player.flavors.infused } });
+  scene = { raid, garden, map }[name];
+  if (name === 'raid') {
+    raidNode = arg;
+    raid.enter({
+      army: { ...player.army }, flavors: { ...player.flavors.infused },
+      level: S.nodeLevel(arg), layout: S.nodeLayout(arg), lootScale: S.nodeLootScale(player, arg), name: MAP_NODES[arg].name,
+    });
+  } else if (name === 'map') map.enter();
   else garden.enter();
   layout();
   showHelp(name, false);
 }
 
-$('#back-garden').addEventListener('click', () => go('garden'));
+$('#back-garden').addEventListener('click', () => go('map'));
 
 // ---------- help ----------
 
 function showHelp(name, force) {
+  if (name === 'map') name = 'garden';
   const key = name === 'raid' ? 'seenRaidHelp' : 'seenHelp';
   if (!force && player[key]) return;
   $('#help-garden').hidden = name !== 'garden';

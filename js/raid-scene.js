@@ -147,8 +147,9 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
       <div><b>🌱 ${seeds}</b><small>Spice Seeds</small></div>`;
     const lost = banked.lostSun + banked.lostWater;
     $('#res-tip').textContent = (lost > 0 ? `Your storage was full, so ${lost.toLocaleString()} loot spilled. Grow your Stem to hold more. ` : '') + (
-      game.stars[1] ? `Compost Bin down! A tougher Lv ${game.level + 1} Bug Hive has moved in.`
-      : stars > 0 ? 'Take out the Compost Bin to unlock the next Bug Hive.'
+      banked.note ? banked.note
+      : game.stars[1] ? 'Compost Bin down!'
+      : stars > 0 ? 'Take out the Compost Bin to conquer this hive.'
       : 'Tip: lead with Bell Peppers to draw fire, spread your drops to dodge Spicy Spores, and save Hot Sauce for turrets or walls.');
     results.classList.remove('hidden');
   }
@@ -167,8 +168,8 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
   }
 
   return {
-    enter({ army, level, flavors = {} }) {
-      game = new Raid({ army, level, flavors });
+    enter({ army, level, flavors = {}, layout, lootScale = 1, name }) {
+      game = new Raid({ army, level, flavors, layout, lootScale });
       for (const [type, el] of Object.entries(cardEls)) {
         const f = flavors[type];
         el.querySelector('.flav').textContent = f ? FLAVORS[f].icon : '';
@@ -180,7 +181,7 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
       ui.inspect = null;
       shownResults = false;
       results.classList.add('hidden');
-      $('#banner b').textContent = `Scouting Bug Hive Lv ${level}`;
+      $('#banner b').textContent = `Scouting ${name || 'the Bug Hive'} · Lv ${level}`;
       refreshCards();
     },
     exit() { results.classList.add('hidden'); },
