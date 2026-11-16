@@ -1,6 +1,6 @@
 // The Garden scene: your Pepper Plant home base.
 
-import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS, FLAVORS, INFUSE_COST, DIG, BUILDINGS, DEFENSE, TRAP, GREENHOUSE } from './config.js';
+import { GARDEN, PLANTS, STEM_LEVELS, TROOPS, UNITS, FLAVORS, INFUSE_COST, DIG, BUILDINGS, DEFENSE, TRAP, GREENHOUSE, GROWTH } from './config.js';
 import * as S from './state.js';
 import { drawStem, PLANT_ART, drawBubble, drawPlantIcon } from './garden-art.js';
 import { drawUnitIcon, drawTurret, drawHedge } from './render.js';
@@ -31,7 +31,7 @@ function drawSporePatch(c, x, y, level, t, bounce = 0) {
 }
 const fmt = (n) => Math.floor(n).toLocaleString();
 
-export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip }) {
+export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip, tutorial }) {
   const c = canvas.getContext('2d');
   const view = { tile: 20, dpr: 1, S: 20 };
   const bg = document.createElement('canvas');
@@ -206,6 +206,23 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
       if (amt >= Math.max(1, d.store[q.level] * 0.1)) drawBubble(c, q.x + 1.55, q.y - 0.1, d.makes, clock, amt >= d.store[q.level]);
     }
 
+    // growing building: sparkles + progress bar
+    if (p.growing) {
+      const q = p.growing.target === 'stem' ? 'stem' : p.plants.find(x => x.id === p.growing.target);
+      if (q) {
+        const pos = posOf(q), s = sizeOf(q);
+        const k = 1 - S.growLeft(p) / Math.max(1, p.growing.until - p.growing.from);
+        for (let i = 0; i < 4; i++) {
+          const a = clock * 2 + i * 1.6;
+          c.beginPath(); c.arc(pos.x + s / 2 + Math.cos(a) * s * 0.4, pos.y + s / 2 + Math.sin(a) * s * 0.3, 0.06, 0, Math.PI * 2);
+          c.fillStyle = `rgba(200,255,140,${0.5 + Math.sin(clock * 4 + i) * 0.3})`; c.fill();
+        }
+        const by = pos.y - (q === 'stem' ? 1.2 : 0.35);
+        c.fillStyle = 'rgba(0,0,0,0.6)'; c.beginPath(); c.roundRect(pos.x + s / 2 - 0.8, by - 0.05, 1.6, 0.22, 0.1); c.fill();
+        c.fillStyle = '#7fd85a'; c.beginPath(); c.roundRect(pos.x + s / 2 - 0.76, by - 0.01, 1.52 * Math.max(0.04, k), 0.14, 0.07); c.fill();
+      }
+    }
+
     // falling leaves
     for (const l of leaves) {
       c.save(); c.translate(l.x, l.y); c.rotate(l.r);
@@ -230,6 +247,28 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
       c.fillStyle = '#2b1d14'; c.fillText(String(lvl), bx, by + badge * 0.05);
     }
     const fs = Math.max(12, view.tile * 0.5) * view.dpr;
+    // growth countdown text
+    if (p.growing) {
+      const q = p.growing.target === 'stem' ? 'stem' : p.plants.find(x => x.id === p.growing.target);
+      if (q) {
+        const pos = posOf(q), s = sizeOf(q);
+        const by = (pos.y - (q === 'stem' ? 1.2 : 0.35) - 0.25) * view.S;
+        c.font = `${fs * 0.7}px 'Lilita One', system-ui, sans-serif`;
+        c.textBaseline = 'alphabetic';
+        const txt = `⏱ ${S.fmtTime(S.growLeft(p))}`;
+        c.lineWidth = fs * 0.15; c.strokeStyle = 'rgba(0,0,0,0.7)'; c.strokeText(txt, (pos.x + s / 2) * view.S, by);
+        c.fillStyle = '#e8ffd8'; c.fillText(txt, (pos.x + s / 2) * view.S, by);
+      }
+    }
+    // tutorial: a pointing hand on the first Leaf
+    if (tutorial && tutorial.pointAt() === 'leaf') {
+      const leaf = p.plants.find(q => q.type === 'leaf');
+      if (leaf) {
+        c.font = `${fs * 1.6}px system-ui, sans-serif`;
+        c.textBaseline = 'middle';
+        c.fillText('👆', (leaf.x + 1.6) * view.S, (leaf.y + 0.9 + Math.sin(clock * 5) * 0.12) * view.S);
+      }
+    }
     c.font = `${fs}px 'Lilita One', system-ui, sans-serif`;
     c.textBaseline = 'alphabetic';
     for (const f of floaters) {
@@ -247,6 +286,13 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
     const total = Object.values(p.army).reduce((a, b) => a + b, 0);
     const i = blossoms.indexOf(q);
     return Math.max(0, Math.ceil((total - i * 5) / Math.max(1, blossoms.length)));
+  }
+
+  // A building finished growing (timer done or Finish now).
+  function grew(q) {
+    sfx('star'); sprout(q);
+    if (q === 'stem') { bgKey = ''; showTip(`Your Stem grew to level ${p.stem.level}!`); }
+    else showTip(`${PLANTS[q.type].name} grew to level ${q.level}!`);
   }
 
   // ---------- effects ----------
@@ -271,6 +317,9 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
   const sunBar = $('#g-sun-bar'), waterBar = $('#g-water-bar');
   const raidSub = $('#g-raid-sub');
   function updateHud() {
+    const done = S.finishGrowth(p);
+    if (done) { save(); grew(done); if (sheet === 'info' && selected === done) openInfo(done); }
+    $('#g-build small').textContent = p.growing ? `⏱ ${S.fmtTime(S.growLeft(p))}` : 'Build & grow';
     const cp = S.cap(p);
     sunEl.textContent = `${fmt(p.sun)} / ${fmt(cp.sun)}`;
     waterEl.textContent = `${fmt(p.water)} / ${fmt(cp.water)}`;
@@ -316,10 +365,16 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
   }
 
   // ----- info sheet for a selected building -----
+  const growTag = (kind, lvl) => {
+    const secs = p.settings.timers ? (GROWTH[kind][lvl] || 0) : 0;
+    return secs ? ` · ⏱ ${S.fmtTime(secs * 1000)}` : '';
+  };
+
   function infoHtml(q) {
     if (q === 'stem') {
       const L = p.stem.level, cur = STEM_LEVELS[L], nxt = STEM_LEVELS[L + 1];
-      const lim = (o) => `${o.limits.leaf} Leaves · ${o.limits.root} Roots · ${o.limits.blossom} Blossoms`;
+      const pl = (n, one, many) => `${n} ${n === 1 ? one : many}`;
+      const lim = (o) => `${pl(o.limits.leaf, 'Leaf', 'Leaves')} · ${pl(o.limits.root, 'Root', 'Roots')} · ${pl(o.limits.blossom, 'Blossom', 'Blossoms')}`;
       return `
         <div class="sh-head"><h3>The Stem <span class="lvl">Lv ${L}</span></h3><button class="x" data-close>✕</button></div>
         <p class="sh-blurb">The heart of your plant. If it falls in battle, you lose.</p>
@@ -328,7 +383,8 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
           <div><span>Storage</span><b>${fmt(cur.cap.sun)}</b>${nxt ? `<i>→ ${fmt(nxt.cap.sun)}</i>` : ''}</div>
           <div class="wide"><span>Allows</span><b>${lim(cur)}</b>${nxt ? `<i>→ ${lim(nxt)}</i>` : ''}</div>
         </div>
-        <div class="row">${btn('sh-up', nxt ? 'Grow' : 'Fully grown', nxt ? `☀️ ${fmt(nxt.cost)}` : '', 'primary')}${btn('sh-move', 'Move', '')}</div>`;
+        <p class="sh-grow" id="sh-grow" hidden></p>
+        <div class="row">${btn('sh-up', nxt ? 'Grow' : 'Fully grown', nxt ? `☀️ ${fmt(nxt.cost)}${growTag('stem', L + 1)}` : '', 'primary')}${btn('sh-move', 'Move', '')}</div>`;
     }
     const d = PLANTS[q.type], L = q.level, N = L + 1;
     const has = (arr) => arr && arr[N] != null;
@@ -361,8 +417,9 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
       <div class="sh-head"><h3>${d.name} <span class="lvl">Lv ${L}</span></h3><button class="x" data-close>✕</button></div>
       <p class="sh-blurb">${d.blurb}</p>
       <div class="stats">${stats}</div>
+      <p class="sh-grow" id="sh-grow" hidden></p>
       <div class="row">
-        ${btn('sh-up', cost != null ? 'Upgrade' : 'Max level', cost != null ? `☀️ ${fmt(cost)}` : '', 'primary')}
+        ${btn('sh-up', cost != null ? 'Upgrade' : 'Max level', cost != null ? `☀️ ${fmt(cost)}${growTag('plant', N)}` : '', 'primary')}
         ${d.makes ? btn('sh-collect', 'Collect', '') : ''}
         ${btn('sh-move', 'Move', '')}
         ${d.size === 1 ? btn('sh-dig-up', 'Remove', '') : ''}
@@ -377,10 +434,17 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
     openSheet('info', infoHtml(q));
     wireSheetCommon();
     $('#sh-up').onclick = () => {
+      if (S.isGrowing(p, q)) {
+        const err = S.finishNow(p);
+        if (err) { sfx('deny'); showTip(err); return; }
+        grew(q); save(); openInfo(q);
+        return;
+      }
       const err = S.upgrade(p, q);
       if (err) { sfx('deny'); showTip(err); return; }
-      sfx('star'); sprout(q); save();
-      if (q === 'stem') { bgKey = ''; showTip(`Your Stem grew to level ${p.stem.level}!`); }
+      save();
+      if (p.growing) { sfx('pop'); sprout(q); showTip(`Growing… ready in ${S.fmtTime(S.growLeft(p))}`); }
+      else grew(q);
       openInfo(q);
     };
     $('#sh-move').onclick = () => startMove(q);
@@ -394,6 +458,14 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
   function refreshInfoButtons() {
     const up = $('#sh-up');
     if (!up || !selected) return;
+    const growEl = $('#sh-grow');
+    if (growEl && S.isGrowing(p, selected)) {
+      growEl.hidden = false;
+      growEl.innerHTML = `🌱 Growing to level ${p.growing.level} · <b>${S.fmtTime(S.growLeft(p))}</b> left`;
+      up.innerHTML = `<b>Finish now</b><small>🌱 ${S.finishNowCost(p)} Spice Seed${S.finishNowCost(p) > 1 ? 's' : ''}</small>`;
+      up.classList.toggle('disabled', p.seeds < S.finishNowCost(p));
+      return;
+    }
     const err = S.canUpgrade(p, selected);
     up.classList.toggle('disabled', !!err);
     const note = $('#sh-note');
@@ -628,9 +700,12 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
         const err = S.train(p, b.dataset.type);
         if (err) { sfx('deny'); showTip(err); return; }
         sfx('pop'); save(); refreshArmy();
+        tutorial?.on('train');
       };
     }
     refreshArmy();
+    tutorial?.on('army');
+    tutorial?.refresh();
   }
 
   function refreshArmy() {
@@ -701,6 +776,7 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
     if (r.full) { sfx('deny'); showTip('Storage full! Grow your Stem to hold more.'); return false; }
     if (!r.got) return false;
     floatText(q.x + 1, q.y, `+${fmt(r.got)} ${RES_ICON[r.resource]}`, r.resource === 'sun' ? '#ffd23f' : '#7fd3ff');
+    tutorial?.on('harvest');
     sfx(r.resource === 'sun' ? 'star' : 'sap');
     save();
     return true;
@@ -795,7 +871,7 @@ export function createGarden({ canvas, player, onRaid, onDig, onDefend, showTip 
 
   return {
     resize, frame, pointerDown, pointerMove, pointerUp,
-    enter() { bgKey = ''; updateHud(); },
+    enter() { bgKey = ''; updateHud(); tutorial?.refresh(); },
     exit() { place = null; selected = null; closeSheet(); },
     floatText,
     refresh: updateHud,

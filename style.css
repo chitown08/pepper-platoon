@@ -648,3 +648,44 @@ html, body {
 .arow.hybrid { background: linear-gradient(90deg, #e9f7df, #fff8e6); }
 .arow.dud { background: #efe6d0; }
 .card.hybrid { background: linear-gradient(#f1fbe8, #dcefc9); }
+
+/* ---------- tutorial coach ---------- */
+
+#coach {
+  position: absolute;
+  top: 10px; left: 50%;
+  transform: translateX(-50%);
+  width: min(94%, 420px);
+  display: flex; gap: 8px; align-items: flex-start;
+  padding: 10px 12px;
+  border-radius: 14px;
+  border: 3px solid #1a110b;
+  background: #fff8e6;
+  color: #3a2614;
+  box-shadow: 0 6px 0 #1a110b, 0 10px 30px #0008;
+  z-index: 6;
+  animation: pop 0.3s cubic-bezier(.2, 1.6, .4, 1);
+}
+#coach[hidden] { display: none; }
+.coach-who { font-size: 30px; line-height: 1; }
+.coach-body { flex: 1; min-width: 0; }
+.coach-text { margin: 0; font-size: 14px; font-weight: 700; line-height: 1.35; }
+.coach-foot { display: flex; justify-content: space-between; align-items: center; margin-top: 6px; }
+.coach-step { font-weight: 900; opacity: 0.5; }
+.coach-skip { border: none; background: none; color: #8a5a2b; font: 900 12px 'Nunito', sans-serif; text-decoration: underline; cursor: pointer; }
+.coach-target { position: relative; z-index: 7; animation: coachPulse 1s infinite !important; }
+@keyframes coachPulse { 50% { box-shadow: 0 0 0 5px #ffd23f, 0 0 26px #ffd23f; } }
+
+/* ---------- settings ---------- */
+
+.settings { margin: 10px 0 6px; padding: 8px 12px; border-radius: 12px; background: #e9d5a6; text-align: left; }
+.settings h3 { margin: 0 0 6px; font: 16px 'Lilita One', sans-serif; }
+.settings label { display: flex; align-items: center; gap: 10px; padding: 3px 0; font-weight: 900; font-size: 14px; cursor: pointer; }
+.settings input { width: 20px; height: 20px; accent-color: #3fa13a; }
+.settings small { display: block; font-weight: 700; font-size: 11px; opacity: 0.65; }
+.sh-grow { margin: 0 0 8px; padding: 6px 10px; border-radius: 10px; background: #dff3cf; font-size: 13px; font-weight: 900; color: #2f6b22; }
+#help .panel { max-height: 92vh; overflow-y: auto; }
+
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation-duration: 0.01ms !important; animation-iteration-count: 1 !important; transition-duration: 0.01ms !important; }
+}

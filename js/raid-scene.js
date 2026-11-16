@@ -7,7 +7,7 @@ import { sfx, unlockAudio } from './audio.js';
 
 const $ = (s) => document.querySelector(s);
 
-export function createRaidScene({ canvas, showTip, onFinish }) {
+export function createRaidScene({ canvas, showTip, onFinish, onDeploy }) {
   let game = new Raid();
   const renderer = new Renderer(canvas);
   const ui = { selected: 'jalapeno', spellArmed: false, hover: null, denyFlash: 0, inspect: null };
@@ -124,7 +124,7 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
       if (!next) return;
       ui.selected = next;
     }
-    if (game.deploy(ui.selected, p.x, p.y)) refreshCards();
+    if (game.deploy(ui.selected, p.x, p.y)) { refreshCards(); onDeploy?.(); }
   }
 
   function onPointerDown(e) {

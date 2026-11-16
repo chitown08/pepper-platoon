@@ -410,3 +410,11 @@ export const GREENHOUSE = {
   pity: [0.5, 1.5],              // seconds turrets near a fresh Dud stop firing
   pityRange: 5,
 };
+
+// ---------- Growth timers (can be switched off in Settings) ----------
+// Seconds to grow TO each level. New buildings (level 1) are always instant.
+export const GROWTH = {
+  plant: [0, 0, 60, 300, 1200, 3600],
+  stem: [0, 0, 300, 1800, 7200],
+  seedsPerMinutes: 10,   // "Finish now" costs 1 Spice Seed per 10 minutes left (at least 1)
+};

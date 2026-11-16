@@ -12,6 +12,9 @@
   <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
   <link href="https://fonts.googleapis.com/css2?family=Lilita+One&family=Nunito:wght@700;900&display=swap" rel="stylesheet">
   <link rel="stylesheet" href="style.css">
+  <link rel="manifest" href="manifest.webmanifest">
+  <link rel="icon" type="image/png" sizes="32x32" href="icons/favicon-32.png">
+  <link rel="apple-touch-icon" href="icons/apple-touch-icon.png">
 </head>
 <body>
   <div id="app" data-scene="garden">
@@ -72,6 +75,11 @@
       <button id="g-alert" class="garden-only" hidden><b>🐛 Bug swarm at the gate!</b><small></small></button>
       <div id="sheet" class="home-ui hidden"></div>
       <div id="tip"></div>
+      <div id="coach" hidden>
+        <span class="coach-who" aria-hidden="true">🌶️</span>
+        <div class="coach-body"><p class="coach-text"></p>
+          <div class="coach-foot"><small class="coach-step"></small><button class="coach-skip">Skip tutorial</button></div></div>
+      </div>
     </main>
 
     <footer id="gbar" class="garden-only">
@@ -118,6 +126,12 @@
   <div id="help" class="overlay hidden">
     <div class="panel">
       <h2>Pepper Platoon</h2>
+      <div class="settings">
+        <h3>Settings</h3>
+        <label><input type="checkbox" id="set-music"> <span>Music</span></label>
+        <label><input type="checkbox" id="set-sfx"> <span>Sound effects</span></label>
+        <label><input type="checkbox" id="set-timers"> <span>Growth timers <small>Upgrades take real time</small></span></label>
+      </div>
       <div id="help-garden">
         <p class="sub">Your Garden</p>
         <ul>

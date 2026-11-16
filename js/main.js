@@ -6,7 +6,9 @@ import { createRaidScene } from './raid-scene.js';
 import { createMap } from './map.js';
 import { createRoulette } from './roulette.js';
 import { MAP_NODES } from './config.js';
-import { unlockAudio, setMuted, isMuted } from './audio.js';
+import { unlockAudio, setMuted, isMuted, setSfxOn } from './audio.js';
+import { playMusic, setMusicOn } from './music.js';
+import { createTutorial } from './tutorial.js';
 
 const $ = (s) => document.querySelector(s);
 const app = $('#app');
@@ -14,6 +16,9 @@ const canvas = $('#game');
 const stage = $('#stage');
 
 const player = S.load();
+setMusicOn(player.settings.music);
+setSfxOn(player.settings.sfx);
+const tutorial = createTutorial({ player, save: () => S.save(player) });
 
 // ---------- shared bits ----------
 
@@ -35,7 +40,7 @@ for (const b of document.querySelectorAll('.mute')) {
 
 // ---------- scenes ----------
 
-const garden = createGarden({ canvas, player, showTip, onRaid: () => go('map'), onDefend: () => go('raid', 'defense'), onDig: () => {
+const garden = createGarden({ canvas, player, showTip, tutorial, onRaid: () => go('map'), onDefend: () => go('raid', 'defense'), onDig: () => {
   if (S.startDig(player)) return;
   S.save(player);
   go('roulette');
@@ -47,6 +52,7 @@ let raidNode = 0;
 const raid = createRaidScene({
   canvas,
   showTip,
+  onDeploy: () => tutorial.on('deploy'),
   onFinish(result) {
     if (result.mode === 'defense') {
       const lines = S.recordDefense(player, result.won);
@@ -83,7 +89,11 @@ function go(name, arg) {
   else if (name === 'roulette') roulette.enter();
   else garden.enter();
   layout();
-  showHelp(name, false);
+  tutorial.setScene(name);
+  if (name === 'map') tutorial.on('map');
+  if (name === 'raid' && arg !== 'defense') tutorial.on('raid');
+  playMusic(name === 'raid' ? (arg === 'defense' ? 'defense' : 'raid') : name === 'roulette' ? 'dig' : 'garden');
+  if (!tutorial.active()) showHelp(name, false);
 }
 
 $('#back-garden').addEventListener('click', () => go(raid.mode === 'defense' ? 'garden' : 'map'));
@@ -102,6 +112,16 @@ function showHelp(name, force) {
 }
 for (const b of document.querySelectorAll('.help-btn')) b.addEventListener('click', () => showHelp(app.dataset.scene, true));
 $('#help-close').addEventListener('click', () => { unlockAudio(); $('#help').classList.add('hidden'); resetArmed = false; $('#reset').textContent = 'Start over'; });
+
+// ---------- settings ----------
+
+const setMusic = $('#set-music'), setSfx = $('#set-sfx'), setTimersEl = $('#set-timers');
+setMusic.checked = player.settings.music;
+setSfx.checked = player.settings.sfx;
+setTimersEl.checked = player.settings.timers;
+setMusic.addEventListener('change', () => { unlockAudio(); player.settings.music = setMusic.checked; setMusicOn(setMusic.checked); S.save(player); });
+setSfx.addEventListener('change', () => { player.settings.sfx = setSfx.checked; setSfxOn(setSfx.checked); S.save(player); });
+setTimersEl.addEventListener('change', () => { S.setTimers(player, setTimersEl.checked); S.save(player); garden.refresh(); });
 
 // Two-tap reset (the viewer can't show confirm dialogs).
 let resetArmed = false;
@@ -135,14 +155,23 @@ function frame(now) {
   const dt = Math.min(0.05, (now - last) / 1000);
   last = now;
   scene.frame(dt);
+  tutorial.tick(dt);
   requestAnimationFrame(frame);
 }
 
 app.dataset.scene = 'garden';
+S.finishGrowth(player);
 garden.enter();
 layout();
-showHelp('garden', false);
+tutorial.setScene('garden');
+playMusic('garden');
+if (!tutorial.active()) showHelp('garden', false);
 requestAnimationFrame(frame);
 
 window.player = player; // handy for debugging in the console
 window.dig = roulette;
+
+// Offline support when installed from the public site (not available inside embedded previews).
+if ('serviceWorker' in navigator && location.protocol === 'https:' && window.top === window) {
+  navigator.serviceWorker.register('sw.js').catch(() => {});
+}

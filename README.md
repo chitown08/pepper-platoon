@@ -27,6 +27,8 @@ A mobile-first web strategy game: grow a sentient pepper plant, then lead platoo
 - **Stars:** ★ 50% destroyed · ★ Compost Bin destroyed · ★ 100% destroyed
 - Deployed troops are used up; the rest come home.
 
+**Polish**: a synthesized kitchen marching band (pots, pans, wooden spoons, kazoo, tuba and glockenspiel) with a tune per screen; a 7-step first-time tutorial; optional growth timers for upgrades (one at a time, finish early with Spice Seeds); Settings for music, sound effects and timers; an app icon, home-screen install support and offline play from the public site.
+
 ## Play it locally
 
 It's plain HTML/CSS/JavaScript with no build step, but it needs a tiny web server (browsers block JS modules from `file://`):
@@ -46,7 +48,9 @@ Then open http://localhost:8000.
 | `js/game.js` | Raid simulation: troop AI, defenses, traps, Heat, scoring |
 | `js/grid.js` | Tile grid and pathfinding |
 | `js/render.js` | All the drawing (every sprite is drawn in code, no image files) |
-| `js/audio.js` | Synthesized sound effects |
+| `js/audio.js`, `js/music.js` | Synthesized sound effects and music |
+| `js/tutorial.js` | First-time tutorial coach |
+| `manifest.webmanifest`, `sw.js`, `icons/` | Home-screen install and offline support |
 | `js/main.js` | Boots the game and switches between Garden and Raid |
 | `js/state.js` | Save data and the economy (harvest, build, upgrade, train) |
 | `js/garden.js`, `js/garden-art.js` | The Garden screen, its menus and art |

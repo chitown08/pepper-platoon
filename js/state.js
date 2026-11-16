@@ -1,6 +1,6 @@
 // Player progress: garden layout, resources, army. Saved to this device's browser storage.
 
-import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST, MAP_NODES, LAYOUTS, BUILDINGS, HIVE, REPEAT_LOOT, parseLayout, DIG, DEFENSE, BUGS, ROWS as RAID_ROWS, COLS as RAID_COLS, UNITS, GREENHOUSE } from './config.js';
+import { GARDEN, STEM_LEVELS, PLANTS, TROOPS, FLAVORS, INFUSE_COST, MAP_NODES, LAYOUTS, BUILDINGS, HIVE, REPEAT_LOOT, parseLayout, DIG, DEFENSE, BUGS, ROWS as RAID_ROWS, COLS as RAID_COLS, UNITS, GREENHOUSE, GROWTH } from './config.js';
 
 const SAVE_KEY = 'pepper-platoon-save-v2';
 let nextId = 1;
@@ -27,6 +27,9 @@ export function newPlayer() {
     boosts: {},
     defense: { next: null, shieldUntil: 0, wins: 0, losses: 0 },
     strains: [],
+    settings: { music: true, sfx: true, timers: true },
+    growing: null,
+    tutorial: 0,
   };
 }
 
@@ -49,6 +52,9 @@ function loadRaw() {
         p.roulette = p.roulette || { lastDay: null };
         p.defense = p.defense || { next: null, shieldUntil: 0, wins: 0, losses: 0 };
         p.strains = p.strains || [];
+        p.settings = p.settings || { music: true, sfx: true, timers: true };
+        if (p.growing === undefined) p.growing = null;
+        if (p.tutorial === undefined) p.tutorial = 'done'; // existing players skip the tutorial
         if (p.defense.next == null && p.map && p.map.conquered.length) p.defense.next = Date.now();
         p.boosts = p.boosts || {};
         if (!p.map) {
@@ -181,6 +187,7 @@ export function upgradeCost(p, q) {
 export function canUpgrade(p, q) {
   const cost = upgradeCost(p, q);
   if (cost == null) return 'Max level';
+  if (p.growing) return isGrowing(p, q) ? 'Already growing' : `Your Gardener is busy growing ${growingName(p)}`;
   if (q !== 'stem' && q.level >= p.stem.level) return 'Grow your Stem first';
   if (p.sun < cost) return 'Not enough Sunlight';
   return null;
@@ -190,10 +197,60 @@ export function upgrade(p, q) {
   const err = canUpgrade(p, q);
   if (err) return err;
   p.sun -= upgradeCost(p, q);
-  if (q === 'stem') { p.stem.level++; return null; }
+  const next = (q === 'stem' ? p.stem.level : q.level) + 1;
+  const secs = (q === 'stem' ? GROWTH.stem : GROWTH.plant)[next] || 0;
+  if (p.settings.timers && secs > 0) {
+    p.growing = { target: q === 'stem' ? 'stem' : q.id, level: next, from: Date.now(), until: Date.now() + secs * 1000 };
+    return null;
+  }
+  applyLevel(p, q);
+  return null;
+}
+
+function applyLevel(p, q) {
+  if (q === 'stem') { p.stem.level++; return; }
   if (PLANTS[q.type].makes) harvestSilently(p, q);
   q.level++;
+}
+
+// ---------- growth timers ----------
+
+const growTarget = (p) => (p.growing ? (p.growing.target === 'stem' ? 'stem' : p.plants.find(q => q.id === p.growing.target)) : null);
+export const isGrowing = (p, q) => !!p.growing && (q === 'stem' ? p.growing.target === 'stem' : p.growing.target === q.id);
+export const growingName = (p) => { const t = growTarget(p); return t === 'stem' ? 'the Stem' : t ? `a ${PLANTS[t.type].name}` : 'something'; };
+export const growLeft = (p, now = Date.now()) => (p.growing ? Math.max(0, p.growing.until - now) : 0);
+export const finishNowCost = (p) => Math.max(1, Math.ceil(growLeft(p) / 60000 / GROWTH.seedsPerMinutes));
+
+// Completes a finished growth. Returns the building that leveled up, if any.
+export function finishGrowth(p, now = Date.now()) {
+  if (!p.growing || now < p.growing.until) return null;
+  const t = growTarget(p);
+  p.growing = null;
+  if (t) applyLevel(p, t);
+  return t;
+}
+
+export function finishNow(p) {
+  if (!p.growing) return 'Nothing is growing';
+  const cost = finishNowCost(p);
+  if (p.seeds < cost) return `Needs ${cost} Spice Seed${cost > 1 ? 's' : ''}`;
+  p.seeds -= cost;
+  p.growing.until = Date.now();
+  finishGrowth(p);
   return null;
+}
+
+// Turning timers off finishes anything in progress.
+export function setTimers(p, on) {
+  p.settings.timers = on;
+  if (!on && p.growing) { p.growing.until = 0; finishGrowth(p); }
+}
+
+export function fmtTime(ms) {
+  const s = Math.ceil(ms / 1000);
+  if (s >= 3600) return `${Math.floor(s / 3600)}h ${Math.floor((s % 3600) / 60)}m`;
+  if (s >= 60) return `${Math.floor(s / 60)}m ${String(s % 60).padStart(2, '0')}s`;
+  return `${s}s`;
 }
 
 function harvestSilently(p, q) {

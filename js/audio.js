@@ -14,9 +14,12 @@ function ctx() {
   return ac;
 }
 
+let sfxOn = true;
 export function unlockAudio() { ctx(); }
+export function audioCtx() { return ctx(); }
 export function setMuted(m) { muted = m; }
 export function isMuted() { return muted; }
+export function setSfxOn(on) { sfxOn = on; }
 
 function tone(freq, dur, { type = 'sine', vol = 0.2, slide = 0, delay = 0 } = {}) {
   const a = ctx(); if (!a) return;
@@ -75,7 +78,7 @@ const SOUNDS = {
 const MIN_GAP = { thorn: 0.06, chomp: 0.05, splat: 0.05, squish: 0.05, crunch: 0.05 };
 
 export function sfx(name) {
-  if (muted || !SOUNDS[name]) return;
+  if (muted || !sfxOn || !SOUNDS[name]) return;
   const now = performance.now() / 1000;
   if (last[name] && now - last[name] < (MIN_GAP[name] || 0.02)) return;
   last[name] = now;
