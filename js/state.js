@@ -86,7 +86,7 @@ export function housingCap(p) {
   return p.plants.filter(q => q.type === 'blossom').reduce((a, q) => a + PLANTS.blossom.housing[q.level], 0);
 }
 export function housingUsed(p) {
-  return Object.entries(p.army).reduce((a, [k, n]) => a + n * TROOPS[k].housing, 0);
+  return Object.entries(p.army).reduce((a, [k, n]) => a + n * (TROOPS[k]?.housing || 0), 0);
 }
 
 // How much a Leaf/Root has stored up right now.
@@ -206,8 +206,11 @@ export function move(p, q, x, y) {
 
 export function canTrain(p, type) {
   const t = TROOPS[type];
+  if (t.stem && p.stem.level < t.stem) return `Grow your Stem to level ${t.stem} first`;
+  if (t.max && (p.army[type] || 0) >= t.max) return `You can only hold ${t.max}`;
   if (housingUsed(p) + t.housing > housingCap(p)) return 'Blossoms are full';
   if (p.water < t.cost) return 'Not enough Water';
+  if (t.seeds && p.seeds < t.seeds) return 'Not enough Spice Seeds';
   return null;
 }
 
@@ -215,6 +218,7 @@ export function train(p, type) {
   const err = canTrain(p, type);
   if (err) return err;
   p.water -= TROOPS[type].cost;
+  p.seeds -= TROOPS[type].seeds || 0;
   p.army[type] = (p.army[type] || 0) + 1;
   return null;
 }

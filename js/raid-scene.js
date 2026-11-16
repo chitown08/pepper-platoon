@@ -170,13 +170,18 @@ export function createRaidScene({ canvas, showTip, onFinish }) {
   return {
     enter({ army, level, flavors = {}, layout, lootScale = 1, name }) {
       game = new Raid({ army, level, flavors, layout, lootScale });
+      let shown = 1;
       for (const [type, el] of Object.entries(cardEls)) {
+        el.hidden = !game.army[type];
+        if (!el.hidden) shown++;
         const f = flavors[type];
         el.querySelector('.flav').textContent = f ? FLAVORS[f].icon : '';
         el.querySelector('.flav').title = f ? FLAVORS[f].name : '';
       }
       window.raid = game; // handy for debugging in the console
       ui.selected = Object.keys(UNITS).find(k => game.army[k] > 0) || 'jalapeno';
+      cardsEl.style.setProperty('--cards', shown);
+      cardsEl.classList.toggle('many', shown > 4);
       ui.spellArmed = false;
       ui.inspect = null;
       shownResults = false;

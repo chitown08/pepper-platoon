@@ -10,6 +10,13 @@ const $ = (s) => document.querySelector(s);
 const { cols: COLS, rows: ROWS } = GARDEN;
 const RES_ICON = { sun: '☀️', water: '💧' };
 const MAP_COUNT = 9;
+const TROOP_BLURB = {
+  jalapeno: 'Cheap swarm. Rushes the nearest building.',
+  habanero: 'Lobs explosive seeds over walls. Fragile.',
+  bell: 'No damage, but turrets nearby must shoot it.',
+  ghost: 'Hunts turrets and walks through walls. Unseen at first.',
+  reaper: 'Hero. Massive hits; nearby peppers go into a frenzy.',
+};
 
 function hash(n) { const s = Math.sin(n * 127.1) * 43758.5453; return s - Math.floor(s); }
 const fmt = (n) => Math.floor(n).toLocaleString();
@@ -431,13 +438,18 @@ export function createGarden({ canvas, player, onRaid, onDig, showTip }) {
   // ----- army sheet -----
   function openArmy() {
     selected = null;
-    const rows = Object.entries(TROOPS).map(([type, t]) => `
-      <div class="arow" data-type="${type}">
+    const rows = Object.entries(TROOPS).map(([type, t]) => {
+      const locked = t.stem && p.stem.level < t.stem;
+      const info = t.max ? `${UNITS[type].role} · one per raid, no space needed` : `${UNITS[type].role} · takes ${t.housing} space`;
+      const price = `💧 ${t.cost}${t.seeds ? ` 🌱${t.seeds}` : ''}`;
+      return `
+      <div class="arow ${locked ? 'locked' : ''} ${t.max ? 'hero' : ''}" data-type="${type}">
         <canvas width="96" height="96"></canvas>
-        <span class="bmain"><b>${UNITS[type].name}</b><small>${UNITS[type].role} · takes ${t.housing} space</small></span>
+        <span class="bmain"><b>${UNITS[type].name}</b><small>${locked ? `Unlocks at Stem level ${t.stem}` : info}</small><small class="blurb">${TROOP_BLURB[type]}</small></span>
         <span class="acount" id="ac-${type}">x0</span>
-        <button class="sbtn primary train" data-type="${type}"><b>+1</b><small>💧 ${t.cost}</small></button>
-      </div>`).join('');
+        <button class="sbtn primary train" data-type="${type}"><b>${locked ? '🔒' : '+1'}</b><small>${price}</small></button>
+      </div>`;
+    }).join('');
     openSheet('army', `
       <div class="sh-head"><h3>Grow your platoon</h3><button class="x" data-close>✕</button></div>
       <div class="housing"><span>Blossom space</span><div class="hbar"><i id="hbar"></i></div><b id="hnum"></b></div>

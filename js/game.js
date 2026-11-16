@@ -104,7 +104,7 @@ export class Raid {
     const hp = d.hp * (flavor === 'smoked' ? 1.35 : 1);
     this.units.push({
       id: nextId++, type, d, x, y, hp, maxHp: hp, alive: true, flavor,
-      target: null, path: null, ignore: new Set(), cool: 0.3, slowT: 0, hitT: 0,
+      target: null, path: null, ignore: new Set(), cool: 0.3, slowT: 0, hitT: 0, age: 0, frenzy: false, hidden: false,
       face: 1, offx: rand(-0.18, 0.18), offy: rand(-0.18, 0.18), walk: rand(0, 6), atkAnim: 0,
     });
   }
@@ -136,6 +136,8 @@ export class Raid {
         for (const u of this.units) u.path = null;
         this.pathsDirty = false;
       }
+      const reapers = this.units.filter(u => u.d.aura);
+      for (const u of this.units) u.frenzy = reapers.some(r => r !== u && Math.hypot(r.x - u.x, r.y - u.y) <= r.d.aura);
       for (const u of this.units) this.updateUnit(u, dt);
       for (const b of this.buildings) if (b.alive) this.updateBuilding(b, dt);
       for (const t of this.traps) this.updateTrap(t, dt);
@@ -180,7 +182,7 @@ export class Raid {
         if (d < bestD) { bestD = d; best = b; }
       }
     };
-    if (u.d.targeting === 'defense') pool(b => !!b.def.attack);
+    if (u.d.targeting === 'defense') pool(b => !!b.def.attack); // Bell Peppers & Ghost Peppers go for turrets
     if (!best) pool(() => true);
     return best;
   }
@@ -188,8 +190,13 @@ export class Raid {
   updateUnit(u, dt) {
     u.hitT = Math.max(0, u.hitT - dt);
     u.atkAnim = Math.max(0, u.atkAnim - dt);
+    u.age += dt;
     if (u.slowT > 0) u.slowT -= dt;
     const slowed = u.slowT > 0;
+    if (u.d.phase) {
+      const here = this.grid.get(Math.floor(u.x), Math.floor(u.y));
+      u.hidden = u.age < u.d.fadeIn || !!(here && here.alive && here.type === 'wall');
+    }
 
     if (!u.target || !u.target.alive) {
       u.target = this.pickTarget(u);
@@ -205,14 +212,14 @@ export class Raid {
     }
 
     if (!u.path) {
-      u.path = findPath(this.grid, Math.floor(u.x), Math.floor(u.y), t, u.d.range, WALL_PATH_COST);
+      u.path = findPath(this.grid, Math.floor(u.x), Math.floor(u.y), t, u.d.range, u.d.phase ? 0 : WALL_PATH_COST);
       if (u.path === null) { u.ignore.add(t.id); u.target = null; return; }
     }
     if (u.path.length === 0) { u.path = null; return; }
 
     const n = u.path[0];
     const occ = this.grid.get(n.x, n.y);
-    if (occ && occ.alive && occ.type === 'wall') {
+    if (occ && occ.alive && occ.type === 'wall' && !u.d.phase) {
       if (distToRect(u.x, u.y, occ) <= Math.max(u.d.range, 0.55)) {
         this.unitAttack(u, occ, dt, slowed);
         return;
@@ -224,7 +231,7 @@ export class Raid {
     const ty = n.y + 0.5 + (last ? u.offy : u.offy * 0.5);
     const dx = tx - u.x, dy = ty - u.y;
     const d = Math.hypot(dx, dy);
-    const step = u.d.speed * (slowed ? 0.5 : 1) * dt;
+    const step = u.d.speed * (slowed ? 0.5 : 1) * (u.frenzy ? 1.3 : 1) * dt;
     if (Math.abs(dx) > 0.02) u.face = dx > 0 ? 1 : -1;
     u.walk += dt * 10;
     if (d <= step) { u.x = tx; u.y = ty; u.path.shift(); }
@@ -235,7 +242,7 @@ export class Raid {
     if (Math.abs(b.cx - u.x) > 0.05) u.face = b.cx > u.x ? 1 : -1;
     u.cool -= dt;
     if (u.cool > 0) return;
-    u.cool = u.d.atkInterval * (slowed ? 1.6 : 1) * (u.flavor === 'saffron' ? 0.65 : 1);
+    u.cool = u.d.atkInterval * (slowed ? 1.6 : 1) * (u.flavor === 'saffron' ? 0.65 : 1) * (u.frenzy ? 0.6 : 1);
     if (u.d.dmg <= 0) return;
     u.atkAnim = 0.18;
     if (u.d.ranged) {
@@ -274,7 +281,7 @@ export class Raid {
     u.hitT = 0.1;
     if (u.hp <= 0) {
       u.alive = false;
-      const col = { jalapeno: '#3fa34d', bell: '#e23b2e', habanero: '#ff8a1c' }[u.type];
+      const col = { jalapeno: '#3fa34d', bell: '#e23b2e', habanero: '#ff8a1c', ghost: '#e8e2f5', reaper: '#8b0f0a' }[u.type];
       for (let i = 0; i < 12; i++) this.particle(u.x, u.y - 0.2, rand(-3, 3), rand(-4, -0.5), rand(0.4, 0.8), col, rand(0.05, 0.12));
       for (let i = 0; i < 4; i++) this.particle(u.x, u.y - 0.2, rand(-2, 2), rand(-3, -1), 0.6, '#fff4c2', 0.05);
       sfx('squish');
@@ -347,7 +354,7 @@ export class Raid {
       // Sap Sprayers ignore taunts and lob at the densest clump of peppers.
       let best = null, bestN = 0;
       for (const u of this.units) {
-        if (!u.alive || Math.hypot(u.x - b.cx, u.y - b.cy) > r) continue;
+        if (!u.alive || u.hidden || Math.hypot(u.x - b.cx, u.y - b.cy) > r) continue;
         let n = 0;
         for (const v of this.units) if (Math.hypot(u.x - v.x, u.y - v.y) <= b.def.splash) n++;
         if (n > bestN) { bestN = n; best = u; }
@@ -356,7 +363,7 @@ export class Raid {
     }
     let best = null, bestD = Infinity, taunted = false;
     for (const u of this.units) {
-      if (!u.alive) continue;
+      if (!u.alive || u.hidden) continue;
       const d = Math.hypot(u.x - b.cx, u.y - b.cy);
       if (d > r) continue;
       const isTaunt = u.d.taunt && d <= u.d.taunt + b.w / 2;
@@ -380,7 +387,7 @@ export class Raid {
     if (!b.def.attack) return;
     b.cool -= dt * (b.mangoT > 0 ? 0.6 : 1);
     let t = b.target;
-    if (!t || !t.alive || Math.hypot(t.x - b.cx, t.y - b.cy) > b.def.range) t = b.target = null;
+    if (!t || !t.alive || t.hidden || Math.hypot(t.x - b.cx, t.y - b.cy) > b.def.range) t = b.target = null;
     if (b.cool <= 0 || !t) t = b.target = this.acquireTarget(b);
     if (!t) return;
 

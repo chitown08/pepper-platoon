@@ -147,7 +147,7 @@ html, body {
 
 #cards {
   display: grid;
-  grid-template-columns: repeat(4, 1fr);
+  grid-template-columns: repeat(var(--cards, 4), minmax(0, 1fr));
   gap: 6px;
   padding: 8px 8px 10px;
   background: linear-gradient(var(--soil), #1f150e);
@@ -532,3 +532,16 @@ html, body {
   .gbtn b { font-size: 16px; }
   .gbtn small { font-size: 10px; }
 }
+
+/* ---------- heroes & more troops ---------- */
+
+#cards.many { gap: 4px; padding-left: 4px; padding-right: 4px; }
+#cards.many .card .role { display: none; }
+#cards.many .card .name { font-size: 11px; }
+#cards.many .card canvas { width: 38px; height: 38px; }
+.card[hidden] { display: none; }
+.arow.locked { opacity: 0.6; }
+.arow.hero { background: linear-gradient(90deg, #ffe9c8, #fff8e6); border-color: #8b0f0a; }
+.arow .blurb { opacity: 0.6; font-size: 10.5px; }
+.alist { max-height: none; }
+.tchips { flex-wrap: wrap; max-width: 118px; justify-content: flex-end; }

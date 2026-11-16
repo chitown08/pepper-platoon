@@ -101,7 +101,72 @@ export function drawHabaneroArt(c, flash) {
   c.fillStyle = '#fff'; c.fillRect(-0.04, 0.04, 0.12, 0.03);
 }
 
-const UNIT_ART = { jalapeno: drawJalapenoArt, bell: drawBellArt, habanero: drawHabaneroArt };
+export function drawGhostArt(c, flash) {
+  // pale, wrinkled, with a wispy tail instead of a tip
+  const g = c.createLinearGradient(0, -0.45, 0, 0.6);
+  g.addColorStop(0, '#fbf8ff'); g.addColorStop(1, '#c9bfe0');
+  c.beginPath();
+  c.moveTo(-0.2, -0.42);
+  c.bezierCurveTo(0.25, -0.5, 0.36, -0.05, 0.22, 0.2);
+  c.quadraticCurveTo(0.3, 0.38, 0.12, 0.42);
+  c.quadraticCurveTo(0.18, 0.58, 0.0, 0.62);
+  c.quadraticCurveTo(-0.08, 0.48, -0.16, 0.5);
+  c.quadraticCurveTo(-0.18, 0.36, -0.28, 0.3);
+  c.bezierCurveTo(-0.42, 0.0, -0.38, -0.36, -0.2, -0.42);
+  c.fillStyle = flash ? '#fff' : g; c.fill();
+  c.lineWidth = 0.035; c.strokeStyle = '#9d8fc0'; c.stroke();
+  c.strokeStyle = 'rgba(140,120,180,0.45)'; c.lineWidth = 0.025;
+  for (const y of [-0.15, 0.02, 0.18]) { c.beginPath(); c.moveTo(-0.24, y); c.quadraticCurveTo(0, y + 0.06, 0.22, y - 0.02); c.stroke(); }
+  c.beginPath(); c.ellipse(-0.02, -0.46, 0.17, 0.06, 0, 0, Math.PI * 2); c.fillStyle = '#7d9a6a'; c.fill();
+  // hollow, glowing eyes
+  ellipse(c, -0.09, -0.16, 0.07, 0.09, '#2a1f3d');
+  ellipse(c, 0.11, -0.16, 0.07, 0.09, '#2a1f3d');
+  ellipse(c, -0.08, -0.15, 0.025, 0.03, '#b8f0ff');
+  ellipse(c, 0.12, -0.15, 0.025, 0.03, '#b8f0ff');
+  c.beginPath(); c.ellipse(0.02, 0.06, 0.06, 0.04, 0, 0, Math.PI * 2); c.fillStyle = '#2a1f3d'; c.fill();
+}
+
+export function drawReaperArt(c, flash) {
+  // deep crimson, bumpy, with the Reaper's hooked "scorpion" tail
+  const g = c.createRadialGradient(-0.12, -0.15, 0.05, 0, 0, 0.55);
+  g.addColorStop(0, '#ff4a2e'); g.addColorStop(0.6, '#b8150c'); g.addColorStop(1, '#6e0806');
+  c.beginPath();
+  c.moveTo(-0.05, -0.42);
+  c.bezierCurveTo(0.3, -0.5, 0.42, -0.15, 0.36, 0.05);
+  c.bezierCurveTo(0.42, 0.12, 0.3, 0.22, 0.28, 0.3);
+  c.bezierCurveTo(0.2, 0.42, 0.1, 0.42, 0.12, 0.5);
+  c.quadraticCurveTo(0.3, 0.58, 0.34, 0.7);    // the hooked tail
+  c.quadraticCurveTo(0.12, 0.66, 0.0, 0.5);
+  c.bezierCurveTo(-0.22, 0.45, -0.32, 0.3, -0.36, 0.18);
+  c.bezierCurveTo(-0.44, 0.08, -0.38, -0.05, -0.38, -0.12);
+  c.bezierCurveTo(-0.4, -0.35, -0.25, -0.44, -0.05, -0.42);
+  c.fillStyle = flash ? '#fff' : g; c.fill();
+  c.lineWidth = 0.04; c.strokeStyle = '#4a0402'; c.stroke();
+  // wrinkles & bumps
+  c.strokeStyle = 'rgba(70,0,0,0.45)'; c.lineWidth = 0.03;
+  for (const [x, y] of [[-0.25, 0.1], [0.2, 0.15], [-0.1, 0.3], [0.25, -0.2]]) { c.beginPath(); c.arc(x, y, 0.08, 0.2, 2.6); c.stroke(); }
+  c.beginPath(); c.ellipse(-0.18, -0.2, 0.05, 0.12, -0.4, 0, Math.PI * 2); c.fillStyle = 'rgba(255,200,180,0.35)'; c.fill();
+  // stem cap + tiny crown
+  c.beginPath(); c.ellipse(0, -0.44, 0.2, 0.07, 0, 0, Math.PI * 2); c.fillStyle = '#2f5e1b'; c.fill();
+  c.fillStyle = '#ffd23f';
+  c.beginPath(); c.moveTo(-0.14, -0.5); c.lineTo(-0.14, -0.66); c.lineTo(-0.07, -0.57); c.lineTo(0, -0.7); c.lineTo(0.07, -0.57); c.lineTo(0.14, -0.66); c.lineTo(0.14, -0.5); c.closePath(); c.fill();
+  c.strokeStyle = '#b8860b'; c.lineWidth = 0.02; c.stroke();
+  // blazing eyes
+  for (const s of [-1, 1]) {
+    const ex = 0.03 + s * 0.12;
+    ellipse(c, ex, -0.15, 0.075, 0.07, '#ffe14d');
+    ellipse(c, ex + 0.02, -0.14, 0.03, 0.04, '#300');
+    c.beginPath(); c.moveTo(ex - s * 0.1, -0.29); c.lineTo(ex + s * 0.08, -0.21);
+    c.lineWidth = 0.05; c.lineCap = 'round'; c.strokeStyle = '#1a0000'; c.stroke();
+  }
+  // fanged grin
+  c.beginPath(); c.arc(0.04, 0.05, 0.13, 0.1 * Math.PI, 0.9 * Math.PI); c.fillStyle = '#2a0000'; c.fill();
+  c.fillStyle = '#fff';
+  c.beginPath(); c.moveTo(-0.05, 0.07); c.lineTo(-0.02, 0.13); c.lineTo(0.01, 0.07); c.fill();
+  c.beginPath(); c.moveTo(0.08, 0.07); c.lineTo(0.11, 0.13); c.lineTo(0.14, 0.07); c.fill();
+}
+
+const UNIT_ART = { jalapeno: drawJalapenoArt, bell: drawBellArt, habanero: drawHabaneroArt, ghost: drawGhostArt, reaper: drawReaperArt };
 
 export function drawUnitIcon(canvas, type) {
   const c = canvas.getContext('2d');
@@ -374,11 +439,22 @@ function drawUnit(c, u, t) {
     c.beginPath(); c.ellipse(u.x, u.y + 0.05, u.d.radius * 1.1, u.d.radius * 0.5, 0, 0, Math.PI * 2);
     c.strokeStyle = FLAVORS[u.flavor].color; c.lineWidth = 0.06; c.stroke();
   }
+  if (u.d.aura) {
+    const pulse = 0.85 + Math.sin(t * 6) * 0.08;
+    c.beginPath(); c.arc(u.x, u.y, u.d.aura * pulse, 0, Math.PI * 2);
+    c.fillStyle = 'rgba(255,60,20,0.07)'; c.fill();
+    c.strokeStyle = 'rgba(255,80,30,0.45)'; c.lineWidth = 0.06; c.stroke();
+  }
+  if (u.frenzy && Math.random() < 0.15) {
+    // tiny flame flicker on frenzied peppers (drawn as a dot; cheap)
+    ellipse(c, u.x + (Math.random() - 0.5) * 0.3, u.y - u.d.radius * 2, 0.04, 0.06, '#ff8a1c');
+  }
   if (u.d.taunt) {
     c.beginPath(); c.arc(u.x, u.y, u.d.taunt, 0, Math.PI * 2);
     c.strokeStyle = 'rgba(255,90,70,0.18)'; c.lineWidth = 0.05; c.setLineDash([0.2, 0.2]); c.stroke(); c.setLineDash([]);
   }
   c.save();
+  if (u.hidden) c.globalAlpha = 0.35 + Math.sin(t * 8 + u.id) * 0.1;
   const lunge = u.atkAnim > 0 ? Math.sin((u.atkAnim / 0.18) * Math.PI) * 0.15 : 0;
   c.translate(u.x + lunge * u.face, u.y - s * 0.5 - bob);
   c.scale(s * u.face, s);

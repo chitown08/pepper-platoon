@@ -22,6 +22,19 @@ export const UNITS = {
     hp: 70, dmg: 44, splash: 1.0, atkInterval: 2.0, range: 3.6, speed: 1.3,
     radius: 0.24, perDeploy: 1, army: 7, targeting: 'any', ranged: true,
   },
+  ghost: {
+    name: 'Ghost Pepper', role: 'Assassin',
+    hp: 65, dmg: 48, atkInterval: 1.0, range: 0.6, speed: 1.9,
+    radius: 0.22, perDeploy: 1, army: 0, targeting: 'defense',
+    phase: true,         // walks through walls; turrets can't see it inside one
+    fadeIn: 2.5,         // seconds unseen after being dropped
+  },
+  reaper: {
+    name: 'Carolina Reaper', role: 'Hero',
+    hp: 1300, dmg: 110, atkInterval: 0.9, range: 0.7, speed: 1.3,
+    radius: 0.36, perDeploy: 1, army: 0, targeting: 'any',
+    aura: 3.2,           // Capsaicin Frenzy radius: nearby peppers attack 40% faster, move 30% faster
+  },
 };
 
 export const BUILDINGS = {
@@ -231,10 +244,13 @@ export const HIVE = {
 export const GARDEN = { cols: 15, rows: 19 };
 
 // Housing space each troop takes up in your Blossoms, and its Water cost to grow.
+// stem = Stem level needed to grow it; seeds = Spice Seeds also needed; max = most you can hold.
 export const TROOPS = {
   jalapeno: { housing: 1, cost: 20 },
   habanero: { housing: 2, cost: 50 },
   bell:     { housing: 4, cost: 120 },
+  ghost:    { housing: 3, cost: 90, stem: 2 },
+  reaper:   { housing: 0, cost: 600, seeds: 3, stem: 3, max: 1 },
 };
 
 // Stem (HQ) levels. Upgrading grows the buildable plot and raises limits.

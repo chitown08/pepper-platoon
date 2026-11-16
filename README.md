@@ -17,7 +17,7 @@ A mobile-first web strategy game: grow a sentient pepper plant, then lead platoo
 **Root Roulette**: once a day, Dig under your plant (💧100). Tap root pieces to rotate them and connect the taproot to nutrient pockets before the 60-second Sap Pressure bursts: Aquifers (Water), Seed Geodes (Spice Seeds), a Fertilizer Geyser (Photosynthesis Overdrive: double Sunlight for 4 hours), and on the bottom row an Ancient Ingredient that unlocks the rare **Truffle** (bonus loot) or **Saffron** (faster attacks) flavor. Glowing fungus tiles in your root network multiply rewards; tap Burrowing Grubs before they scramble your roots. Every puzzle is generated to be solvable.
 
 **Sauce Raids**: attack a Bug Hive with the troops you've grown.
-- **Troops:** Jalapeño (swarm infantry), Bell Pepper (tank that taunts turrets and deals no damage), Habanero (grenadier that lobs over walls)
+- **Troops:** Jalapeño (swarm infantry), Bell Pepper (tank that taunts turrets and deals no damage), Habanero (grenadier that lobs over walls), Ghost Pepper (Stem Lv 2: turret assassin that walks through walls and is unseen at first), Carolina Reaper (Stem Lv 3 hero: one per raid, costs Spice Seeds, huge melee and a frenzy aura)
 - **Bug defenses:** Thorn Shooter (rapid single target), Sap Sprayer (slowing goo aimed at clumps), hidden Spicy Spore traps, Twig & Pebble Walls
 - **Heat:** builds over time and spikes on kills; spend 50 for a **Hot Sauce Strike** (extra damage to walls)
 - **Stars:** ★ 50% destroyed · ★ Compost Bin destroyed · ★ 100% destroyed
